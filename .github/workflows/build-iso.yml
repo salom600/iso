@@ -39,14 +39,16 @@ jobs:
 
       - name: Show result + free disk
         run: |
-          ls -lh borealis-*-amd64.iso
+          ls -lh borealis-*-amd64.iso*
           df -h / || true
 
       - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
         with:
           name: borealis-linux-iso
-          path: borealis-*-amd64.iso
+          path: |
+            borealis-*-amd64.iso
+            borealis-*-amd64.iso.sha256
           retention-days: 14
           compression-level: 0
 
@@ -73,5 +75,7 @@ jobs:
             * Hybrid BIOS+UEFI live/installer ISO, Debian 12 base
             * Verification matrix: see TESTPLAN.md in the repository
           prerelease: true
-          files: borealis-*-amd64.iso
+          files: |
+            borealis-*-amd64.iso
+            borealis-*-amd64.iso.sha256
           fail_on_unmatched_files: true

@@ -145,7 +145,13 @@ say "Building ISO (this takes 20–60 min depending on machine and network)"
 lb build 2>&1 | tee "$LOG"
 
 ISO="borealis-${ISO_VERSION}-${ARCH}.iso"
+if [[ ! -f "$ISO" ]]; then
+    # live-build names the image <image-name>-<arch>.hybrid.iso
+    found=$(ls -1 ./*.hybrid.iso ./*.iso 2>/dev/null | head -n1 || true)
+    [[ -n "$found" ]] && mv "$found" "$ISO"
+fi
 [[ -f "$ISO" ]] || die "lb build finished but $ISO not produced — inspect $LOG"
+sha256sum "$ISO" > "${ISO}.sha256"
 
 # --- 6. optional 32-bit UEFI injection (best-effort, off by default) ----------
 if [[ "${ADD_EFI32:-0}" == "1" ]]; then
