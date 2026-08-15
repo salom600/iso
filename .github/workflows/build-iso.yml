@@ -31,18 +31,11 @@ jobs:
       - name: Show disk headroom
         run: df -h / "$GITHUB_WORKSPACE" || true
 
-      - name: Create non-root build user (live-build wants a sudo user)
-        run: |
-          useradd -m builder
-          echo "builder ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/builder
-          chmod 440 /etc/sudoers.d/builder
-          chown -R builder:builder "$GITHUB_WORKSPACE"
-
       - name: Bootstrap build host (live-build, toolchain, full apt components)
-        run: sudo -u builder sudo -H scripts/bootstrap-host.sh
+        run: ./scripts/bootstrap-host.sh
 
       - name: Build ISO
-        run: sudo -u builder -H env HOME=/home/builder ./build.sh
+        run: ./build.sh
 
       - name: Show result + free disk
         run: |

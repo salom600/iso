@@ -28,14 +28,19 @@ LOG="$ROOT/borealis-build.log"
 say()  { printf '\033[1;36m[build]\033[0m %s\n' "$*"; }
 die()  { printf '\033[1;31m[build: FATAL]\033[0m %s\n' "$*" >&2; exit 1; }
 
-[[ $EUID -ne 0 ]] || die "Run as a normal user with sudo; not as root."
+# live-build's chroot stages need root; privileged containers (CI) run us as
+# root directly, developer hosts go through sudo.
+SUDO=""
+if [[ $EUID -ne 0 ]]; then
+    SUDO="sudo"
+fi
 
 # --- 0. host sanity -----------------------------------------------------------
 if ! grep -qE 'ID=debian|ID_LIKE=.*debian' /etc/os-release 2>/dev/null; then
     die "Build host must be Debian 12/13 (bare, VM, or WSL2). Current OS is not Debian."
 fi
-say "Ensuring build tools (sudo scripts/bootstrap-host.sh)"
-sudo scripts/bootstrap-host.sh
+say "Ensuring build tools (scripts/bootstrap-host.sh)"
+$SUDO scripts/bootstrap-host.sh
 
 # --- 1. verify optional packages against apt metadata -------------------------
 say "Verifying package availability (prevents mid-build aborts)"
