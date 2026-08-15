@@ -116,7 +116,7 @@ lb config \
     --iso-application "Borealis Linux" \
     --iso-publisher "Borealis Linux Project; https://borealis-linux.example" \
     --iso-volume "BorealisLinux-${ISO_VERSION}" \
-    --boot-append-live "boot=live components hostname=borealis username=borealis user-fullname=Borealis locales=en_US.UTF-8 keyboard-layouts=us quiet splash" \
+    --bootappend-live "boot=live components hostname=borealis username=borealis user-fullname=Borealis locales=en_US.UTF-8 keyboard-layouts=us quiet splash" \
     --linux-flavours amd64 \
     --mirror-bootstrap "$MIRROR" \
     --mirror-chroot "$MIRROR" \
