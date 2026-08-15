@@ -123,8 +123,8 @@ vulkan-tools
 mesa-utils
 
 ##### Gaming #####
+# (steam-installer installs in hook 0200 — it needs i386 multiarch enabled)
 gamemode
-steam-installer
 
 ##### Borealis Store + custom apps runtime #####
 python3
@@ -142,7 +142,9 @@ winbind
 ##### Installer: Calamares + target boot/encryption plumbing #####
 calamares
 grub2-common
-grub-pc
+# grub-pc (BIOS metapackage) conflicts with grub-efi-amd64; shipping both
+# *-bin payload packages lets grub-install serve either firmware target.
+grub-pc-bin
 grub-efi-amd64
 grub-efi-amd64-bin
 efibootmgr

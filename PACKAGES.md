@@ -54,9 +54,9 @@ everywhere at basic level)
 zero resident cost until used)
 
 ## Installer
-`calamares` · `grub-pc` + `grub-efi-amd64` (+ `-bin`) · `efibootmgr` ·
-`os-prober` (Windows detection in dual boot) · `cryptsetup` `lvm2` (LUKS
-installs) · `ntfs-3g` `dosfstools` `exfatprogs`
+`calamares` · `grub2-common` + `grub-pc-bin` + `grub-efi-amd64` (+ `-bin`) ·
+`efibootmgr` · `os-prober` (Windows detection in dual boot) · `cryptsetup`
+`lvm2` (LUKS installs) · `ntfs-3g` `dosfstools` `exfatprogs`
 
 ## Fonts & icons
 `fonts-noto-core` `fonts-noto-color-emoji` `fonts-liberation` `fonts-cantarell`

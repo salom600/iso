@@ -22,6 +22,10 @@ apt-get install -y -qq wine32:i386 \
 apt-get install -y -qq mesa-vulkan-drivers:i386 libvulkan1:i386 \
     || echo "HOOK 0200: 32-bit Vulkan not available (i386 DXVK disabled)" >&2
 
+# Steam needs i386 multiarch (steam-libs-i386) — only resolvable here.
+apt-get install -y -qq steam-installer \
+    || echo "HOOK 0200: steam-installer unavailable (contrib?)" >&2
+
 # Marker consumed by borealis-wine-prefix to detect a complete Wine stack.
 mkdir -p /usr/share/borealis/wine
 echo "installed-by-hook-0200" > /usr/share/borealis/wine/.wine-stack-ok
