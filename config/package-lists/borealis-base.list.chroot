@@ -129,6 +129,15 @@ intel-media-va-driver
 xserver-xorg
 nemo-fileroller
 
+##### Formerly-via-Recommends — session-critical, now explicit #####
+dbus-user-session
+dbus-x11
+libnss-systemd
+libpam-gnome-keyring
+libavcodec-extra59
+rtkit
+avahi-daemon
+
 ##### Gaming #####
 # Steam lives in the Borealis Store (its i386 stack is heavy); GameMode ships.
 gamemode
