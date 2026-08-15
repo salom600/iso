@@ -18,7 +18,7 @@ live-config · `linux-image-amd64` · `intel-microcode` `amd64-microcode` ·
 ## Borealis Shell (desktop)
 `wayfire` (Wayland compositor, floating desktop) · `waybar` (glass dock) ·
 `wofi`/`bemenu`* (launcher; zenity fallback built in) · `foot` (terminal) ·
-`mako-notifications` · `swaybg` `swaylock` `swayidle` · `grim` `slurp` (screenshots) ·
+`sway-notification-center` (swaync) · `swaybg` `swaylock` `swayidle` · `grim` `slurp` (screenshots) ·
 `wl-clipboard` · `xwayland` (X11 apps) · `qtwayland5` ·
 `lightdm` + `lightdm-gtk-greeter` · `policykit-1-gnome` ·
 `xdg-desktop-portal{-wlr,-gtk}` · `openbox`+`xterm` (recovery session) ·

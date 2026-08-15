@@ -141,8 +141,8 @@ class Quick(Gtk.Window):
         return bool(r and r.returncode == 0)
 
     def _dnd(self):
-        r = run(["makoctl", "mode"])
-        return bool(r and "dnd" in (r.stdout or ""))
+        r = run(["swaync-client", "-D"])
+        return bool(r and "true" in (r.stdout or "").lower())
 
     def on_toggle(self, switch, state, key):
         if key == "perf":
@@ -160,7 +160,7 @@ class Quick(Gtk.Window):
             else:
                 run(["pkill", "-x", "wlsunset"])
         elif key == "dnd":
-            run(["makoctl", "set-mode", "dnd" if state else "default"])
+            run(["swaync-client", "-d"])
 
     def on_action(self, _b, cmd):
         if not cmd[-1] and cmd[-2] == "terminate-session":

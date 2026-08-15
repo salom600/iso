@@ -1,0 +1,75 @@
+/* Borealis Shell — notification center style (matches Aurora Night) */
+
+* {
+    font-family: Cantarell, "DejaVu Sans", sans-serif;
+    font-size: 13px;
+}
+
+.notification-row {
+    outline: none;
+}
+
+.notification {
+    background: rgba(16, 21, 38, 0.92);
+    border: 1px solid rgba(126, 224, 255, 0.22);
+    border-radius: 14px;
+    margin: 6px 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.notification-content {
+    background: transparent;
+    padding: 8px;
+    border-radius: 14px;
+}
+
+.notification-default-action,
+.notification-action {
+    background: transparent;
+    border: none;
+}
+
+.notification-action:hover {
+    background: rgba(126, 224, 255, 0.12);
+    border-radius: 10px;
+}
+
+.close-button {
+    background: rgba(255, 107, 129, 0.85);
+    color: #101526;
+    border-radius: 100%;
+    margin: 4px;
+    padding: 2px;
+}
+
+.control-center {
+    background: rgba(13, 18, 32, 0.95);
+    border: 1px solid rgba(126, 224, 255, 0.18);
+    border-radius: 18px;
+    margin: 12px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+}
+
+.widget-title {
+    color: #eaf2ff;
+    font-size: 15px;
+    margin: 10px 14px;
+}
+
+.widget-dnd {
+    color: #c7d3ec;
+    margin: 6px 14px;
+}
+
+.widget-dnd > switch {
+    border-radius: 14px;
+}
+
+.notification-text {
+    color: #dbe4f5;
+}
+
+.notification-text .summary {
+    color: #7ee0ff;
+    font-weight: bold;
+}

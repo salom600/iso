@@ -19,15 +19,16 @@ firmware-iwlwifi
 firmware-atheros
 firmware-brcm80211
 firmware-realtek
-firmware-mediatek
 firmware-sof-signed
 bluez-firmware
+# note: bookworm ships MediaTek blobs inside firmware-misc-nonfree;
+# the standalone firmware-mediatek package only exists from trixie on.
 
 ##### Borealis Shell (Wayland desktop) — no XFCE, no LXQt, ever #####
 wayfire
 waybar
 foot
-mako-notifications
+sway-notification-center
 swaybg
 swaylock
 swayidle
