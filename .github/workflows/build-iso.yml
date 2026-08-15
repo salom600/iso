@@ -63,6 +63,33 @@ jobs:
         with:
           name: borealis-linux-iso
 
+      - name: Prepare release assets (GitHub caps a single asset at 2 GiB)
+        run: |
+          mkdir -p release-assets
+          ISO=$(ls borealis-*-amd64.iso)
+          SIZE=$(stat -c%s "$ISO")
+          if [ "$SIZE" -lt 2000000000 ]; then
+            echo "single-file release (${SIZE} bytes)"
+            cp "$ISO" release-assets/
+            (cd release-assets && sha256sum "$ISO" > "$ISO.sha256")
+          else
+            echo "ISO is ${SIZE} bytes — releasing as split parts"
+            sha256sum "$ISO" > "release-assets/$ISO.single.sha256"
+            split -b 1900m -d "$ISO" "release-assets/$ISO.part-"
+            (cd release-assets && sha256sum "$ISO".part-* > "$ISO.parts.sha256")
+            printf '%s\n' \
+              '# Reassembling the split ISO' \
+              '' \
+              'Rejoin the parts and verify:' \
+              '' \
+              '    cat borealis-1.0-amd64.iso.part-* > borealis-1.0-amd64.iso' \
+              '    sha256sum -c borealis-1.0-amd64.iso.single.sha256' \
+              '' \
+              '(On Windows cmd: copy /b part-00+part-01+... borealis.iso)' \
+              > release-assets/JOIN.md
+          fi
+          ls -lh release-assets/
+
       - name: Publish rolling 'continuous' release
         uses: softprops/action-gh-release@v2
         with:
@@ -73,9 +100,8 @@ jobs:
             ${{ github.sha }} (branch ${{ github.ref_name }}).
 
             * Hybrid BIOS+UEFI live/installer ISO, Debian 12 base
+            * If the ISO is shipped as split parts, see JOIN.md
             * Verification matrix: see TESTPLAN.md in the repository
           prerelease: true
-          files: |
-            borealis-*-amd64.iso
-            borealis-*-amd64.iso.sha256
+          files: release-assets/*
           fail_on_unmatched_files: true

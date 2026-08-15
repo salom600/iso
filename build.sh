@@ -123,6 +123,7 @@ lb config \
     --iso-volume "BorealisLinux-${ISO_VERSION}" \
     --bootappend-live "boot=live components hostname=borealis username=borealis user-fullname=Borealis locales=en_US.UTF-8 keyboard-layouts=us quiet splash" \
     --linux-flavours amd64 \
+    --apt-recommends false \
     --mirror-bootstrap "$MIRROR" \
     --mirror-chroot "$MIRROR" \
     --mirror-binary "http://deb.debian.org/debian"
@@ -152,6 +153,25 @@ if [[ ! -f "$ISO" ]]; then
 fi
 [[ -f "$ISO" ]] || die "lb build finished but $ISO not produced — inspect $LOG"
 sha256sum "$ISO" > "${ISO}.sha256"
+
+# --- 5b. size report (diagnostics for future slimming) ------------------------
+say "Size report — 40 largest packages in the image"
+python3 - <<'PY' || true
+import os
+path = "chroot/var/lib/dpkg/status"
+sizes, name, size = [], None, 0
+if os.path.exists(path):
+    for line in open(path, encoding="utf-8", errors="replace"):
+        if line.startswith("Package: "):
+            name = line.split()[1]
+        elif line.startswith("Installed-Size: "):
+            size = int(line.split()[1])
+        elif not line.strip() and name:
+            sizes.append((size, name)); name, size = None, 0
+    for s, n in sorted(sizes, reverse=True)[:40]:
+        print(f"{s/1024:9.1f} MB  {n}")
+PY
+du -sh chroot binary 2>/dev/null || true
 
 # --- 6. optional 32-bit UEFI injection (best-effort, off by default) ----------
 if [[ "${ADD_EFI32:-0}" == "1" ]]; then

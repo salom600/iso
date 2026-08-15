@@ -121,9 +121,16 @@ mesa-vulkan-drivers
 libvulkan1
 vulkan-tools
 mesa-utils
+libgl1
+mesa-va-drivers
+intel-media-va-driver
+
+##### Display/login plumbing (explicit because --apt-recommends false) #####
+xserver-xorg
+nemo-fileroller
 
 ##### Gaming #####
-# (steam-installer installs in hook 0200 — it needs i386 multiarch enabled)
+# Steam lives in the Borealis Store (its i386 stack is heavy); GameMode ships.
 gamemode
 
 ##### Borealis Store + custom apps runtime #####
