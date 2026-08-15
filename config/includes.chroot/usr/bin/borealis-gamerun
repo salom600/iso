@@ -1,0 +1,46 @@
+#!/bin/sh
+# borealis-gamerun — per-game accelerator wrapper.
+#
+#   borealis-gamerun [--wayland] [--steam] -- <command...>
+#
+# What it does while the game runs:
+#   * Game Boost on  -> CPU governor performance, background services paused,
+#     shell animations off (auto-restores on exit)
+#   * Feral GameMode -> per-process CPU niceness/IO tweaks (if installed)
+#   * MangoHud       -> optional in-game overlay  (if installed)
+#   * --wayland      -> SDL_VIDEODRIVER=wayland (native Wayland for SDL games)
+#   * --steam        -> launch via steam -applaunch (Windows titles via Proton)
+set -u
+
+WAYLAND=0
+STEAM=0
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --wayland) WAYLAND=1; shift ;;
+        --steam)   STEAM=1;   shift ;;
+        --)        shift; break ;;
+        -*) echo "unknown option: $1" >&2; exit 2 ;;
+        *)  break ;;
+    esac
+done
+
+[ $# -gt 0 ] || { echo "usage: borealis-gamerun [--wayland] -- <command...>" >&2; exit 2; }
+
+notify-send "Borealis Game Boost" "Starting with acceleration: $*"
+borealis-boost on
+
+restore() { borealis-boost off; }
+trap restore EXIT INT TERM
+
+[ "$WAYLAND" = 1 ] && export SDL_VIDEODRIVER=wayland
+command -v mangohud >/dev/null 2>&1 && export MANGOHUD=1
+
+PRE=""
+command -v gamemoderun >/dev/null 2>&1 && PRE="gamemoderun"
+
+if [ "$STEAM" = 1 ]; then
+    # $1 is an appid for --steam
+    $PRE steam -applaunch "$@" || true
+else
+    $PRE "$@" || true
+fi

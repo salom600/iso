@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Borealis
+Name[en]=Borealis
+Comment=Borealis Shell — Wayland session (default desktop)
+Exec=borealis-session
+Type=Application
+DesktopNames=Borealis
+X-LightDM-Session-Type=wayland

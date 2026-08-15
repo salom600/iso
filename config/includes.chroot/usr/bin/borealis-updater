@@ -1,0 +1,31 @@
+#!/bin/sh
+# borealis-updater — user-initiated "check for updates" (apt + flatpak),
+# with progress terminal and a completion notification. Background apt
+# timers are disabled by design; updates happen only when the user asks.
+set -u
+
+LOG="${TMPDIR:-/tmp}/borealis-updates.log"
+: > "$LOG"
+
+{
+    echo "== apt update =="
+    pkexec apt-get update
+    echo "== apt full-upgrade =="
+    pkexec apt-get -y full-upgrade
+    echo "== flatpak update =="
+    if command -v flatpak >/dev/null 2>&1; then
+        flatpak update -y --noninteractive || true
+    else
+        echo "flatpak not installed"
+    fi
+    echo "== done =="
+} >> "$LOG" 2>&1
+rc=$?
+
+if [ $rc -eq 0 ]; then
+    notify-send "Borealis Updates" "System is up to date"
+else
+    notify-send -u critical "Borealis Updates" \
+        "Update problem — see $LOG"
+fi
+exit $rc

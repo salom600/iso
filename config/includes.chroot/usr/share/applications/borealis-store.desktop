@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Borealis Store
+Name[en]=Borealis Store
+GenericName=Software Center
+Comment=Install and manage apps from APT, Flatpak, Snap and AppImage
+Exec=borealis-store
+Icon=borealis-store
+Terminal=false
+Categories=System;PackageManager;
+Keywords=store;software;install;apps;flatpak;snap;appimage;wine;
+StartupNotify=true

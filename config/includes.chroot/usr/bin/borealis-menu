@@ -1,0 +1,43 @@
+#!/bin/sh
+# borealis-menu — application launcher with graceful degradation:
+# wofi -> bemenu -> zenity fallback (zenity is always present in the image).
+set -f
+IFS='
+'
+
+entries=""
+for dir in /usr/share/applications "$HOME/.local/share/applications"; do
+    [ -d "$dir" ] || continue
+    for f in "$dir"/*.desktop; do
+        [ -r "$f" ] || continue
+        grep -q '^Type=Application' "$f" 2>/dev/null || continue
+        grep -q '^NoDisplay=true' "$f" 2>/dev/null && continue
+        name=$(grep -m1 '^Name=' "$f" | cut -d= -f2-)
+        [ -n "$name" ] || continue
+        cmd=$(grep -m1 '^Exec=' "$f" | cut -d= -f2- | sed 's/ %[a-zA-Z]//g')
+        [ -n "$cmd" ] || continue
+        entries="$entries$name|$cmd
+"
+    done
+done
+[ -n "$entries" ] || { notify-send "Borealis" "No applications found"; exit 1; }
+
+if command -v wofi >/dev/null 2>&1; then
+    choice=$(printf '%s' "$entries" | awk -F'|' '{print $1}' \
+        | wofi --show dmenu --prompt "Search apps…")
+    [ -n "$choice" ] || exit 0
+    cmd=$(printf '%s' "$entries" | awk -F'|' -v c="$choice" '$1==c{print $2; exit}')
+elif command -v bemenu >/dev/null 2>&1; then
+    choice=$(printf '%s' "$entries" | awk -F'|' '{print $1}' \
+        | bemenu --prompt "Search apps…")
+    [ -n "$choice" ] || exit 0
+    cmd=$(printf '%s' "$entries" | awk -F'|' -v c="$choice" '$1==c{print $2; exit}')
+else
+    choice=$(printf '%s' "$entries" | awk -F'|' '{print $1}' \
+        | zenity --list --title="Borealis — Applications" \
+                 --column="Application" --height=480 --width=420 2>/dev/null)
+    [ -n "$choice" ] || exit 0
+    cmd=$(printf '%s' "$entries" | awk -F'|' -v c="$choice" '$1==c{print $2; exit}')
+fi
+
+[ -n "$cmd" ] && setsid sh -c "$cmd" >/dev/null 2>&1 &

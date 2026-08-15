@@ -1,0 +1,84 @@
+name: Build Borealis Linux ISO
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md']
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-iso:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    container:
+      image: debian:bookworm
+      options: --privileged
+    timeout-minutes: 170
+    steps:
+      - name: Prepare container (git+sudo needed for checkout & non-root build)
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -qq
+          apt-get install -y --no-install-recommends git sudo ca-certificates
+
+      - uses: actions/checkout@v4
+
+      - name: Show disk headroom
+        run: df -h / "$GITHUB_WORKSPACE" || true
+
+      - name: Create non-root build user (live-build wants a sudo user)
+        run: |
+          useradd -m builder
+          echo "builder ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/builder
+          chmod 440 /etc/sudoers.d/builder
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+
+      - name: Bootstrap build host (live-build, toolchain, full apt components)
+        run: sudo -u builder sudo -H scripts/bootstrap-host.sh
+
+      - name: Build ISO
+        run: sudo -u builder -H env HOME=/home/builder ./build.sh
+
+      - name: Show result + free disk
+        run: |
+          ls -lh borealis-*-amd64.iso
+          df -h / || true
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: borealis-linux-iso
+          path: borealis-*-amd64.iso
+          retention-days: 14
+          compression-level: 0
+
+  release:
+    needs: build-iso
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download built ISO
+        uses: actions/download-artifact@v4
+        with:
+          name: borealis-linux-iso
+
+      - name: Publish rolling 'continuous' release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: continuous
+          name: Borealis Linux 1.0 "Glacier" — continuous build
+          body: |
+            Automated build of Borealis Linux from commit
+            ${{ github.sha }} (branch ${{ github.ref_name }}).
+
+            * Hybrid BIOS+UEFI live/installer ISO, Debian 12 base
+            * Verification matrix: see TESTPLAN.md in the repository
+          prerelease: true
+          files: borealis-*-amd64.iso
+          fail_on_unmatched_files: true

@@ -1,0 +1,77 @@
+/* Aurora Night — GTK overlay (applied on top of Adwaita-dark).
+ * Accent: glacier cyan. Rounded, calm, glass-friendly. */
+
+@define-color accent_color #7ee0ff;
+@define-color accent_bg_color #3d9fc9;
+@define-color theme_fg_color #dbe4f5;
+@define-color theme_bg_color #131a2b;
+
+* {
+    outline-width: 0;
+}
+
+button,
+entry,
+combobox button,
+spinbutton,
+.linked > button {
+    border-radius: 10px;
+}
+
+button {
+    padding: 5px 12px;
+}
+
+button.suggested-action {
+    background: @accent_bg_color;
+    border-color: @accent_bg_color;
+    color: #06121c;
+}
+
+button.suggested-action:hover {
+    background: shade(@accent_bg_color, 1.15);
+}
+
+checkbutton check,
+radiobutton radio {
+    border-radius: 6px;
+}
+
+menu,
+.menu,
+.context-menu,
+popover.background {
+    border-radius: 14px;
+}
+
+menuitem {
+    border-radius: 8px;
+    margin: 2px 6px;
+    padding: 5px 8px;
+}
+
+tooltip {
+    border-radius: 10px;
+}
+
+headerbar {
+    border-radius: 12px 12px 0 0;
+}
+
+switch {
+    border-radius: 14px;
+}
+
+scrollbar slider {
+    border-radius: 8px;
+    min-width: 8px;
+    min-height: 8px;
+}
+
+/* Selection/accent sweeps */
+textview text selection,
+entry selection,
+label selection {
+    background: @accent_bg_color;
+    color: #06121c;
+}

@@ -1,0 +1,51 @@
+/* Fallback dock style — used until the first theme is applied
+ * (borealis-settings applies the default theme on first run).
+ * Mirrors themes/aurora-night.
+ */
+* {
+    font-family: Cantarell, "DejaVu Sans", sans-serif;
+    font-size: 13px;
+    min-height: 0;
+}
+
+window#waybar {
+    background: rgba(15, 20, 34, 0.82);
+    border: 1px solid rgba(120, 170, 255, 0.16);
+    border-radius: 18px;
+    color: #dbe4f5;
+}
+
+#custom-launcher {
+    color: #7ee0ff;
+    font-size: 22px;
+    padding: 0 16px 0 18px;
+}
+
+#taskbar {
+    padding-left: 6px;
+}
+#taskbar button {
+    padding: 2px 10px;
+    margin: 6px 2px;
+    border-radius: 12px;
+    background: transparent;
+    color: #c7d3ec;
+}
+#taskbar button:hover { background: rgba(126, 224, 255, 0.12); }
+#taskbar button.active { background: rgba(126, 224, 255, 0.18); color: #7ee0ff; }
+
+#clock {
+    font-size: 15px;
+    font-weight: bold;
+    color: #eaf2ff;
+    padding: 0 18px;
+}
+
+#tray { padding: 0 10px; }
+#network, #pulseaudio, #custom-boost, #custom-quick {
+    padding: 0 12px;
+    color: #c7d3ec;
+}
+#network.disconnected { color: #ff9e9e; }
+#custom-boost.active { color: #ffd479; }
+#custom-quick { font-size: 16px; }

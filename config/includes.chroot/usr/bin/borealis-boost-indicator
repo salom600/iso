@@ -1,0 +1,12 @@
+#!/bin/sh
+# borealis-boost-indicator — waybar custom module. Emits waybar JSON for the
+# Game Boost state so the dock shows a live, clickable indicator.
+state="off"
+[ -f "${XDG_RUNTIME_DIR:-/tmp}/borealis-boost" ] && \
+    state=$(cat "${XDG_RUNTIME_DIR:-/tmp}/borealis-boost" 2>/dev/null || echo off)
+
+if [ "$state" = "on" ]; then
+    printf '{"text": "\\ud83c\\udfae ON", "class": "active", "tooltip": "Game Boost active — click to disable"}\n'
+else
+    printf '{"text": "\\ud83c\\udfae", "class": "", "tooltip": "Game Boost off — click to enable"}\n'
+fi

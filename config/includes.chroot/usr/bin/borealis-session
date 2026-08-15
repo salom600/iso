@@ -1,0 +1,18 @@
+#!/bin/sh
+# borealis-session — Borealis Shell session entry (launched by LightDM).
+# Sets the environment, then execs the Wayfire compositor. DBus connections
+# resolve to the systemd user bus ($XDG_RUNTIME_DIR/bus), which PipeWire,
+# portals and notifications all share.
+export XDG_CURRENT_DESKTOP=Borealis
+export XDG_SESSION_TYPE=wayland
+export XDG_SESSION_DESKTOP=borealis
+export GDK_BACKEND=wayland,x11
+export CLUTTER_BACKEND=wayland
+export QT_QPA_PLATFORM=wayland;xcb
+export MOZ_ENABLE_WAYLAND=1
+
+# Games/apps keep SDL on X11/XWayland by default — best compatibility; native
+# Wayland SDL is opt-in per-game via borealis-gamerun --wayland.
+unset SDL_VIDEODRIVER
+
+exec /usr/bin/wayfire

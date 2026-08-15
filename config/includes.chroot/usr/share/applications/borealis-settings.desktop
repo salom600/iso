@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Borealis Settings
+Name[en]=Borealis Settings
+GenericName=Settings
+Comment=Themes, performance, Game Boost, system info
+Exec=borealis-settings
+Icon=borealis-settings
+Terminal=false
+Categories=Settings;DesktopSettings;
+Keywords=settings;theme;wallpaper;performance;boost;
+StartupNotify=true

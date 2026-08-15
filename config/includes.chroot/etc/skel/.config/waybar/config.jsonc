@@ -1,0 +1,74 @@
+// Borealis Shell — dock configuration (waybar)
+// Bottom-center floating glass dock: launcher + tasks | clock | status.
+{
+    "layer": "top",
+    "position": "bottom",
+    "height": 58,
+    "margin-bottom": 10,
+    "margin-left": 14,
+    "margin-right": 14,
+
+    "modules-left": ["custom/launcher", "wlr/taskbar"],
+    "modules-center": ["clock"],
+    "modules-right": ["tray", "network", "pulseaudio", "custom/boost", "custom/quick"],
+
+    "custom/launcher": {
+        "format": "◆",
+        "tooltip": true,
+        "tooltip-format": "Start  (Super+Space)",
+        "on-click": "borealis-menu"
+    },
+
+    "wlr/taskbar": {
+        "format": "{icon}",
+        "icon-size": 26,
+        "icon-theme": "Papirus-Dark",
+        "all-outputs": true,
+        "tooltip-format": "{title}",
+        "on-click": "activate",
+        "on-middle-click": "close"
+    },
+
+    "clock": {
+        "format": "  {:%H:%M}",
+        "format-alt": "  {:%a %d %b}",
+        "tooltip-format": "<tt>{calendar}</tt>",
+        "on-click": "borealis-settings --page system"
+    },
+
+    "tray": {
+        "icon-size": 18,
+        "spacing": 8
+    },
+
+    "network": {
+        "format-wifi": " {essid}",
+        "format-ethernet": " lan",
+        "format-disconnected": " offline",
+        "tooltip-format": "{ifname}: {ipaddr}",
+        "on-click": "nm-connection-editor"
+    },
+
+    "pulseaudio": {
+        "format": "{icon} {volume}%",
+        "format-muted": " muted",
+        "format-icons": ["♪", "♫"],
+        "on-click": "pavucontrol",
+        "on-scroll-up": "pactl set-sink-volume @DEFAULT_SINK@ +5%",
+        "on-scroll-down": "pactl set-sink-volume @DEFAULT_SINK@ -5%"
+    },
+
+    "custom/boost": {
+        "exec": "borealis-boost-indicator",
+        "interval": 4,
+        "format": "{}",
+        "on-click": "borealis-boost toggle",
+        "tooltip": true
+    },
+
+    "custom/quick": {
+        "format": "⚙",
+        "tooltip": false,
+        "on-click": "borealis-quick"
+    }
+}

@@ -1,0 +1,31 @@
+* {
+    font-family: Cantarell, "DejaVu Sans", sans-serif;
+}
+window {
+    background-color: rgba(15, 20, 34, 0.92);
+    border: 1px solid rgba(120, 170, 255, 0.20);
+    border-radius: 16px;
+}
+#input {
+    margin: 14px;
+    padding: 10px 14px;
+    border: none;
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.06);
+    color: #eaf2ff;
+    font-size: 15px;
+}
+#inner-box { margin: 0 8px 10px 8px; }
+#outer-box { margin: 0; padding: 0; }
+#scroll { margin: 0 4px; }
+#text {
+    margin: 6px 10px;
+    padding: 6px 10px;
+    color: #dbe4f5;
+    font-size: 14px;
+}
+#entry:selected {
+    background-color: rgba(126, 224, 255, 0.16);
+    border-radius: 10px;
+}
+#entry:selected #text { color: #7ee0ff; }

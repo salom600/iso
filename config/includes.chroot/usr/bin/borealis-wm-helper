@@ -1,0 +1,18 @@
+#!/bin/sh
+# borealis-wm-helper — window-management shim for the dock/quick settings.
+# Wayfire 0.7 exposes no CLI IPC; task activation/close is handled natively by
+# waybar's wlr/taskbar. This helper covers "close the focused window" via
+# ydotool when installed; otherwise it reminds the user of Super+Q.
+action="${1:?usage: borealis-wm-helper close-active}"
+
+case "$action" in
+    close-active)
+        if command -v ydotool >/dev/null 2>&1; then
+            ydotool key 125:1 16:1 16:0 125:0   # Super+Q press/release
+        else
+            notify-send -t 2000 "Borealis Shell" \
+                "Close the focused window with Super+Q"
+        fi
+        ;;
+    *) exit 1 ;;
+esac

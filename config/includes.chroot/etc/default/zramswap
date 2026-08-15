@@ -1,0 +1,5 @@
+# Borealis Linux — zram swap (compressed RAM swap)
+# Effectively doubles usable RAM on 2–4 GB machines; no disk wear.
+ALGO=zstd
+PERCENT=50
+PRIORITY=100

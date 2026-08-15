@@ -1,0 +1,38 @@
+#!/bin/sh
+# borealis-boost — Game Boost orchestrator (user-facing).
+#   on/off/toggle/status
+# ON  = system half (governor+services, passwordless via sudoers whitelist)
+#     + shell half (Performance Mode: no animations, opaque dock)
+# State is tracked in the user runtime dir so the dock indicator reflects it.
+set -u
+
+RUN="${XDG_RUNTIME_DIR:-/tmp}/borealis-boost"
+
+state() {
+    [ -f "$RUN" ] && cat "$RUN" 2>/dev/null || echo off
+}
+
+apply_on() {
+    sudo -n /usr/bin/borealis-gameboost-sys start >/dev/null 2>&1 \
+        || notify-send -u critical "Game Boost" \
+               "Could not apply system tweaks (sudoers rule missing?)"
+    borealis-perf on
+    echo on > "$RUN"
+    notify-send "Game Boost ON" \
+        "CPU governor: performance · animations off · background services paused"
+}
+
+apply_off() {
+    sudo -n /usr/bin/borealis-gameboost-sys stop >/dev/null 2>&1 || true
+    borealis-perf off
+    echo off > "$RUN"
+    notify-send "Game Boost OFF" "System restored to balanced mode"
+}
+
+case "${1:-status}" in
+    on)     state | grep -q '^on$' || apply_on ;;
+    off)    state | grep -q '^on$' && apply_off ;;
+    toggle) if state | grep -q '^on$'; then apply_off; else apply_on; fi ;;
+    status) state ;;
+    *) echo "usage: borealis-boost on|off|toggle|status" >&2; exit 2 ;;
+esac

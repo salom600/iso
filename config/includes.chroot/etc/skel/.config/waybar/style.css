@@ -1,0 +1,6 @@
+/* Borealis Shell — dock style.
+ * The visible theme is @import'ed from the active theme directory so theme
+ * switching never touches this file. Performance Mode swaps the import
+ * target via borealis-bar (opaque, flat, cheaper to composite).
+ */
+@import "../../.local/share/borealis/current/waybar.css";

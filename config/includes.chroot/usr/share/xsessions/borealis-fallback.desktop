@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Borealis (Recovery X11)
+Comment=Minimal openbox session for GPU/driver recovery — Borealis apps are not available here
+Exec=openbox-session
+Type=Application
+DesktopNames=Borealis-Recovery

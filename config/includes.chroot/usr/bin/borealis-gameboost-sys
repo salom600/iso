@@ -1,0 +1,42 @@
+#!/bin/sh
+# borealis-gameboost-sys — system half of Game Boost. Root-only; whitelisted
+# passwordless via sudoers.d (verbs validated, service list fixed).
+#   start: CPU governor -> performance, pause non-essential background services
+#   stop : restore governor, resume previously-paused services
+set -eu
+
+STATE_DIR=/run/borealis
+mkdir -p "$STATE_DIR"
+
+# Services safe to pause while gaming; skipped silently when absent/inactive.
+PAUSABLE="cups.service ModemManager.service fwupd.service"
+
+verb="${1:?usage: borealis-gameboost-sys start|stop}"
+
+case "$verb" in
+    start)
+        /usr/bin/borealis-cpugov performance || true
+        : > "$STATE_DIR/gameboost-stopped-services"
+        for svc in $PAUSABLE; do
+            if systemctl is-active --quiet "$svc" 2>/dev/null; then
+                systemctl stop "$svc" 2>/dev/null \
+                    && echo "$svc" >> "$STATE_DIR/gameboost-stopped-services" \
+                    || true
+            fi
+        done
+        echo "Game Boost (system): governor=performance, background services paused"
+        ;;
+    stop)
+        /usr/bin/borealis-cpugov schedutil || /usr/bin/borealis-cpugov powersave || true
+        if [ -f "$STATE_DIR/gameboost-stopped-services" ]; then
+            while read -r svc; do
+                [ -n "$svc" ] && systemctl start "$svc" 2>/dev/null || true
+            done < "$STATE_DIR/gameboost-stopped-services"
+            rm -f "$STATE_DIR/gameboost-stopped-services"
+        fi
+        echo "Game Boost (system): restored"
+        ;;
+    *)
+        echo "usage: borealis-gameboost-sys start|stop" >&2
+        exit 2 ;;
+esac

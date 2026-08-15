@@ -1,0 +1,14 @@
+# Borealis Shell — launcher (wofi)
+allow_images = true
+image_size = 32
+insensitive = true
+matching = fuzzy
+show = drun
+prompt = Search apps…
+width = 560
+height = 420
+location = center
+xoffset = 0
+yoffset = -120
+key_expand = Tab
+no_actions = true

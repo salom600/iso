@@ -1,0 +1,29 @@
+# Borealis Linux — optional packages.
+# build.sh verifies each against apt metadata on the build host and installs
+# only those that resolve. UI/features degrade gracefully when absent.
+# This file uses the .template suffix so live-build never reads it directly.
+
+# Launcher menu — borealis-menu falls back: wofi -> bemenu -> zenity
+wofi
+bemenu
+
+# Gaming extras
+mangohud
+lutris
+gamescope
+
+# Nice-to-have system tools
+btop
+thermald
+wlsunset
+powertop
+inxi
+fwupd
+
+# Fonts & cursors
+fonts-jetbrains-mono
+fonts-inter
+breeze-cursor-theme
+
+# Qt6 apps on Wayland
+qt6-wayland

@@ -1,0 +1,14 @@
+#!/bin/sh
+#
+# 0400 — quiet boot visuals. Prefer the firmware/BGRT theme (shows the
+# machine's own splash logo — familiar to Windows/macOS switchers), then fall
+# back through whatever themes this plymouth build ships.
+#
+set -e
+echo "HOOK 0400: plymouth theme"
+plymouth-set-default-theme bgrt 2>/dev/null \
+    || plymouth-set-default-theme spinner 2>/dev/null \
+    || plymouth-set-default-theme spinfinity 2>/dev/null \
+    || plymouth-set-default-theme text 2>/dev/null \
+    || true
+exit 0

@@ -1,0 +1,48 @@
+#!/bin/sh
+# borealis-driver-installer — one-click GPU driver setup (GUI).
+# NVIDIA -> offers the matching proprietary driver from Debian non-free.
+# AMD / Intel -> confirms the open driver stack is already active.
+set -u
+
+VGA=$(lspci 2>/dev/null | grep -Ei 'vga compatible|3d controller' || echo "")
+
+nvidia_gpu=$(printf '%s' "$VGA" | grep -i nvidia || true)
+amd_gpu=$(printf '%s' "$VGA" | grep -iE 'amd|radeon' || true)
+intel_gpu=$(printf '%s' "$VGA" | grep -i intel || true)
+
+show() {
+    zenity --info --title="Borealis Drivers" --text="$1" 2>/dev/null || true
+}
+
+if [ -n "$nvidia_gpu" ]; then
+    out=$(zenity --question --title="NVIDIA driver" \
+        --text="Detected NVIDIA GPU:\n$nvidia_gpu\n\nInstall the proprietary NVIDIA driver now?\n(requires internet + reboot)\n\nChoose 'Legacy' only for very old GPUs (GeForce 600/700 era) — the open nouveau driver already works for most older cards." \
+        --ok-label="Install nvidia-driver (recommended)" \
+        --extra-button="Legacy 470xx driver" \
+        --cancel-label="Cancel" 2>/dev/null)
+    rc=$?
+    if [ "$rc" -eq 0 ]; then
+        PKGS="nvidia-driver firmware-misc-nonfree"
+    elif printf '%s' "$out" | grep -q "Legacy"; then
+        PKGS="nvidia-legacy-470xx-driver firmware-misc-nonfree"
+    else
+        exit 0
+    fi
+    notify-send "Borealis Drivers" "Installing $PKGS …"
+    pkexec apt-get install -y $PKGS \
+        && show "NVIDIA driver installed.\nPlease reboot to activate it." \
+        || show "Driver installation failed.\nRetry manually:\npkexec apt-get install -y $PKGS"
+    exit 0
+fi
+
+if [ -n "$amd_gpu" ]; then
+    show "AMD GPU detected:\n$amd_gpu\n\nThe free amdgpu/radeon driver with Vulkan (RADV) is already installed and active — this is the recommended driver for Borealis. No action needed."
+    exit 0
+fi
+
+if [ -n "$intel_gpu" ]; then
+    show "Intel graphics detected:\n$intel_gpu\n\nThe free i915 driver (with Vulkan ANV) is already installed and active. No action needed."
+    exit 0
+fi
+
+show "No discrete GPU detected.\nVGA: ${VGA:-none}\n\nSystem is using the default open graphics stack."

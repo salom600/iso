@@ -1,0 +1,25 @@
+#!/bin/sh
+# borealis-cpugov — set the CPU frequency governor on all cores.
+# Root-only; whitelisted passwordless for the sudo group via
+# /etc/sudoers.d/borealis-gameboost (arguments are validated here).
+set -eu
+
+GOV="${1:-}"
+case "$GOV" in
+    performance|powersave|schedutil|conservative|ondemand) ;;
+    *) echo "usage: borealis-cpugov <performance|powersave|schedutil|conservative|ondemand>" >&2
+       exit 2 ;;
+esac
+
+[ "$(id -u)" -eq 0 ] || { echo "borealis-cpugov must run as root" >&2; exit 3; }
+
+changed=0
+for f in /sys/devices/system/cpu/cpu[0-9]*/cpufreq/scaling_governor; do
+    [ -w "$f" ] || continue
+    cur=$(cat "$f")
+    if [ "$cur" != "$GOV" ]; then
+        echo "$GOV" > "$f" 2>/dev/null && changed=$((changed + 1)) || true
+    fi
+done
+
+echo "governor=$GOV cores_changed=$changed"

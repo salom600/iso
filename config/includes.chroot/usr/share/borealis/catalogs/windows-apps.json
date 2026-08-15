@@ -1,0 +1,40 @@
+{
+  "name": "Borealis Windows Layer — curated apps",
+  "version": 1,
+  "updated": "2026-08-15",
+  "note": "One-click Windows app installs. Each entry downloads the official installer from the vendor and runs it inside the managed Wine prefix. Entries with null url open the vendor page instead (licensing).",
+  "items": [
+    {
+      "id": "7zip-win",
+      "name": "7-Zip (Windows)",
+      "description": "Classic Windows archiver — runs perfectly under Wine.",
+      "category": "Utilities",
+      "url": "https://www.7-zip.org/a/7z2408-x64.exe",
+      "prefix": "apps"
+    },
+    {
+      "id": "notepadpp",
+      "name": "Notepad++ (Windows)",
+      "description": "The Windows text editor many switchers miss — runs great under Wine.",
+      "category": "Development",
+      "url": "https://notepad-plus-plus.org/downloads/",
+      "prefix": "apps"
+    },
+    {
+      "id": "dotnet48",
+      "name": ".NET Framework 4.8 runtime",
+      "description": "Installs .NET 4.8 into the applications prefix (needed by many Windows apps).",
+      "category": "Runtimes",
+      "verb": "dotnet48",
+      "prefix": "apps"
+    },
+    {
+      "id": "dxvk-games",
+      "name": "DXVK for games prefix",
+      "description": "(Re)install DXVK DirectX→Vulkan translation into the games prefix.",
+      "category": "Runtimes",
+      "verb": "dxvk",
+      "prefix": "games"
+    }
+  ]
+}

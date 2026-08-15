@@ -1,0 +1,25 @@
+#!/bin/sh
+#
+# 0300 — systemd & service tuning for the performance targets
+# (idle RAM < 500 MB, idle CPU ~0%).
+#
+set -e
+
+echo "HOOK 0300: systemd tuning"
+
+# No background apt churn at/after boot — updates flow through Borealis
+# Updater (user-initiated) instead. Saves IO + CPU spikes on old machines.
+systemctl disable apt-daily.timer apt-daily-upgrade.timer || true
+systemctl disable man-db.timer || true
+
+# snapd stays socket-activated: zero resident cost until the user actually
+# touches snap from the Borealis Store.
+systemctl disable snapd.service || true
+
+# Debian ships calamares-settings-debian as a Recommends in some stacks;
+# ours lives in /etc/calamares and would be shadowed/conflict — drop theirs.
+apt-get purge -y -qq calamares-settings-debian 2>/dev/null || true
+
+systemctl set-default graphical.target || true
+
+exit 0

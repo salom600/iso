@@ -1,0 +1,28 @@
+#!/bin/sh
+# borealis-screenshot — full-screen or interactive area capture.
+# Saves to ~/Pictures/Screenshots, copies to clipboard, sends a notification.
+DIR="$HOME/Pictures/Screenshots"
+mkdir -p "$DIR"
+FILE="$DIR/borealis-$(date +%Y%m%d-%H%M%S).png"
+
+mode="${1:---area}"
+
+fail() {
+    notify-send -u critical "Screenshot failed" "$1"
+    exit 1
+}
+
+case "$mode" in
+    --full)
+        grim "$FILE" || fail "grim could not capture the screen"
+        ;;
+    --area)
+        GEOM=$(slurp 2>/dev/null) || exit 0   # user cancelled
+        [ -n "$GEOM" ] || exit 0
+        grim -g "$GEOM" "$FILE" || fail "grim could not capture the selection"
+        ;;
+    *) fail "usage: borealis-screenshot [--full|--area]" ;;
+esac
+
+wl-copy < "$FILE" 2>/dev/null || true
+notify-send "Screenshot saved" "$FILE (also copied to clipboard)"

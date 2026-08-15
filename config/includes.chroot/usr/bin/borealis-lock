@@ -1,0 +1,9 @@
+#!/bin/sh
+# borealis-lock — screen lock with the current theme's wallpaper.
+CURRENT="$HOME/.local/share/borealis/current"
+WALL="$CURRENT/wallpaper"
+
+if [ -f "$WALL" ]; then
+    exec swaylock -f -i "$WALL" -s fill
+fi
+exec swaylock -f -i /usr/share/backgrounds/borealis/aurora-night.png -s fill

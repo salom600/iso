@@ -1,0 +1,13 @@
+#!/bin/sh
+# borealis-wallpaper — start the wallpaper daemon with the current theme's
+# background (falls back to the stock Aurora Night wallpaper).
+CURRENT="$HOME/.local/share/borealis/current"
+WALL="$CURRENT/wallpaper"
+
+if [ -f "$WALL" ]; then
+    exec setsid swaybg -i "$WALL" -m fill
+fi
+if [ -f /usr/share/backgrounds/borealis/aurora-night.png ]; then
+    exec setsid swaybg -i /usr/share/backgrounds/borealis/aurora-night.png -m fill
+fi
+exit 0

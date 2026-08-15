@@ -1,0 +1,17 @@
+# Build outputs
+*.iso
+*.log
+*.borealistheme
+cache/
+chroot/
+binary/
+.build/
+config/package-lists/zz-optional-verified.list.chroot
+
+# Python
+__pycache__/
+*.pyc
+
+# Editors
+*.swp
+*~

@@ -1,0 +1,44 @@
+/* Glacier Light — light glass dock */
+
+* {
+    font-family: Cantarell, "DejaVu Sans", sans-serif;
+    font-size: 13px;
+    min-height: 0;
+}
+
+window#waybar {
+    background: rgba(246, 250, 255, 0.86);
+    border: 1px solid rgba(10, 124, 196, 0.22);
+    border-radius: 18px;
+    color: #1d2735;
+}
+
+#custom-launcher {
+    color: #0a7cc4;
+    font-size: 22px;
+    padding: 0 16px 0 18px;
+}
+
+#taskbar { padding-left: 6px; }
+#taskbar button {
+    padding: 2px 10px;
+    margin: 6px 2px;
+    border-radius: 12px;
+    background: transparent;
+    color: #33455c;
+}
+#taskbar button:hover { background: rgba(10, 124, 196, 0.10); }
+#taskbar button.active { background: rgba(10, 124, 196, 0.18); color: #0a7cc4; }
+
+#clock {
+    font-size: 15px;
+    font-weight: bold;
+    color: #16222f;
+    padding: 0 18px;
+}
+
+#tray { padding: 0 10px; }
+#network, #pulseaudio, #custom-boost, #custom-quick { padding: 0 12px; color: #33455c; }
+#network.disconnected { color: #c0392b; }
+#custom-boost.active { color: #b07a00; }
+#custom-quick { font-size: 16px; }

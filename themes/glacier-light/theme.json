@@ -1,0 +1,14 @@
+{
+  "slug": "glacier-light",
+  "name": "Glacier Light",
+  "version": "1.0",
+  "author": "Borealis Project",
+  "description": "Clean professional daylight: ice polygons, soft blues, crisp contrast.",
+  "variant": "light",
+  "accent": "#0a7cc4",
+  "preview_bg": "#eef4fc",
+  "wallpaper": "wallpaper.png",
+  "icons": "Papirus",
+  "cursor": "Adwaita",
+  "font": "Cantarell 11"
+}

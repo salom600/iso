@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Run Windows program
+Comment=Launch a Windows .exe through the Borealis Windows Layer (Wine + DXVK)
+Exec=borealis-exe-launcher %f
+Icon=borealis-wine
+Terminal=false
+Categories=Utility;Emulator;
+MimeType=application/x-ms-dos-executable;application/x-ms-installer;application/x-msdownload;
+NoDisplay=true

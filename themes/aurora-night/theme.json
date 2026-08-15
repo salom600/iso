@@ -1,0 +1,14 @@
+{
+  "slug": "aurora-night",
+  "name": "Aurora Night",
+  "version": "1.0",
+  "author": "Borealis Project",
+  "description": "Anime-inspired starry night: aurora ribbons, drifting sakura petals, glassy dark dock.",
+  "variant": "dark",
+  "accent": "#7ee0ff",
+  "preview_bg": "#101526",
+  "wallpaper": "wallpaper.png",
+  "icons": "Papirus-Dark",
+  "cursor": "Adwaita",
+  "font": "Cantarell 11"
+}

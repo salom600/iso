@@ -1,0 +1,107 @@
+#!/bin/sh
+# borealis-wine — managed Wine prefix tool behind the Windows Layer.
+#
+# Prefixes:
+#   ~/Wine/apps  — general applications (fonts, VC++ runtimes)
+#   ~/Wine/games — games (apps base + DXVK DirectX->Vulkan)
+#
+# Commands:
+#   borealis-wine setup apps|games [--gui]   create/prepare prefix
+#   borealis-wine run    apps|games <exe> [args...]
+#   borealis-wine status
+#
+# Internet is required the first time a prefix is prepared (winetricks
+# downloads fonts/runtimes). Errors surface via notification or zenity.
+set -u
+
+WINEBASE="$HOME/Wine"
+LOGDIR="$HOME/.cache/borealis/wine"
+mkdir -p "$LOGDIR"
+
+prefix_path() {
+    case "$1" in
+        apps) echo "$WINEBASE/apps" ;;
+        games) echo "$WINEBASE/games" ;;
+        *) return 1 ;;
+    esac
+}
+
+prefix_ok() {
+    [ -d "$(prefix_path "$1")/drive_c" ]
+}
+
+do_setup() {
+    kind="$1"; gui="${2:-}"
+    P="$(prefix_path "$kind")" || { echo "bad prefix"; exit 2; }
+    mkdir -p "$P"
+    export WINEPREFIX="$P"
+    export WINEDEBUG=-all
+
+    if [ "$gui" = "--gui" ] && command -v zenity >/dev/null 2>&1; then
+        ( do_setup_work "$kind" ) >"$LOGDIR/setup-$kind.log" 2>&1
+        rc=$?
+        if [ $rc -eq 0 ]; then
+            zenity --info --title="Borealis Windows Layer" \
+                --text="Prefix '$kind' is ready." 2>/dev/null || true
+        else
+            tail -n 15 "$LOGDIR/setup-$kind.log" | zenity \
+                --text-info --title="Setup failed (log tail)" \
+                --width=640 --height=360 2>/dev/null || true
+        fi
+        return $rc
+    fi
+    do_setup_work "$kind"
+}
+
+do_setup_work() {
+    kind="$1"
+    echo "==> Initialising Wine prefix at $WINEPREFIX"
+    wineboot -u >/dev/null 2>&1 || true
+    sleep 1
+
+    echo "==> Installing common runtime components (fonts, VC++ redist)"
+    if command -v winetricks >/dev/null 2>&1; then
+        winetricks -q corefonts vcrun2022 \
+            || echo "winetricks partial failure — continuing" >&2
+    else
+        echo "winetricks not installed" >&2
+    fi
+
+    if [ "$kind" = "games" ]; then
+        echo "==> Installing DXVK (DirectX 9/10/11 -> Vulkan)"
+        winetricks -q dxvk || echo "DXVK install failed (Vulkan drivers?)" >&2
+    fi
+    touch "$WINEPREFIX/.borealis-ready"
+    echo "==> Prefix '$kind' ready"
+}
+
+do_run() {
+    kind="$1"; shift
+    P="$(prefix_path "$kind")" || exit 2
+    export WINEPREFIX="$P"
+    export WINEDEBUG=-all
+    LOG="$LOGDIR/run-$(date +%Y%m%d-%H%M%S).log"
+    wine "$@" >"$LOG" 2>&1
+    rc=$?
+    [ $rc -ne 0 ] && echo "wine exited $rc — log: $LOG" >&2
+    exit $rc
+}
+
+case "${1:-status}" in
+    setup)  shift; do_setup "${1:?apps|games}" "${2:-}" ;;
+    run)    shift; do_run "$@" ;;
+    status)
+        for k in apps games; do
+            if prefix_ok "$k"; then
+                r="ready"; [ -f "$(prefix_path "$k")/.borealis-ready" ] && r="ready+runtime"
+            else
+                r="not created"
+            fi
+            printf '%-6s %s\n' "$k" "$r"
+        done
+        command -v wine >/dev/null 2>&1 \
+            && echo "wine: $(wine --version 2>/dev/null || echo present)" \
+            || echo "wine: NOT INSTALLED"
+        ;;
+    *) echo "usage: borealis-wine setup|run|status …" >&2; exit 2 ;;
+esac

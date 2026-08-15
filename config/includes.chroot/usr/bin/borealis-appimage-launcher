@@ -1,0 +1,67 @@
+#!/bin/sh
+# borealis-appimage-launcher — make AppImages first-class citizens:
+#   * mark executable and run
+#   * optionally register a menu entry (name from the file, icon from the
+#     AppImage's own .Desktop if extractable, else the Borealis logo)
+set -u
+
+IMG="${1:?usage: borealis-appimage-launcher <file.AppImage>}"
+[ -f "$IMG" ] || { echo "not a file: $IMG" >&2; exit 1; }
+
+chmod +x "$IMG"
+
+register() {
+    name=$(basename "$IMG" | sed 's/\.AppImage$//; s/-[0-9].*//' | sed 's/_/ /g')
+    desktop="$HOME/.local/share/applications/appimage-$(basename "$IMG" | tr ' /' '__').desktop"
+    icon=""
+    # Try to pull the embedded desktop file for Name/Icon (cheap peek)
+    if dir=$(mktemp -d); then
+        if (cd "$dir" && "$IMG" --appimage-extract '*.desktop' >/dev/null 2>&1); then
+            d=$(ls "$dir"/squashfs-root/*.desktop 2>/dev/null | head -n1)
+            if [ -n "$d" ]; then
+                embed_name=$(grep -m1 '^Name=' "$d" | cut -d= -f2-)
+                embed_icon=$(grep -m1 '^Icon=' "$d" | cut -d= -f2-)
+                [ -n "$embed_name" ] && name="$embed_name"
+                # Prefer an embedded icon file if it exists
+                for ext in png svg xpm; do
+                    f="$dir/squashfs-root/$embed_icon.$ext"
+                    if [ -n "$embed_icon" ] && [ -f "$f" ]; then
+                        cp "$f" "$HOME/.local/share/icons/hicolor/scalable/apps/appimage-$(basename "$IMG" .$ext).$ext" 2>/dev/null \
+                            || cp "$f" "$HOME/.local/share/icons/appimage-$(basename "$IMG").$ext" 2>/dev/null
+                        icon=$(basename "$f")
+                        break
+                    fi
+                done
+            fi
+        fi
+        rm -rf "$dir"
+    fi
+
+    mkdir -p "$(dirname "$desktop")" "$HOME/.local/share/icons"
+    cat > "$desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=$name
+Exec=$IMG
+Icon=${icon:-borealis}
+Terminal=false
+Categories=Utility;
+EOF
+    update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
+    notify-send "AppImage registered" "$name added to the application menu"
+}
+
+run_now=1
+if command -v zenity >/dev/null 2>&1; then
+    if zenity --question --title="Borealis AppImage" \
+        --text="Run this AppImage now?\n\nChoose 'Register' to also add it to the application menu." \
+        --ok-label="Run" --cancel-label="Register only" 2>/dev/null; then
+        run_now=1
+    else
+        run_now=0
+        register
+    fi
+fi
+
+[ "$run_now" = 1 ] && exec setsid "$IMG" >/dev/null 2>&1 &
+exit 0

@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Install Borealis Linux
+GenericName=System Installer
+Comment=Install Borealis Linux to this computer (alongside another OS, erase disk, manual, encrypted)
+Exec=pkexec calamares
+Icon=calamares
+Terminal=false
+Categories=System;
+Keywords=install;installer;calamares;
+StartupNotify=true
+
+[Desktop Action TryLive]
+Name=Keep exploring the live session
+Exec=echo

@@ -1,0 +1,155 @@
+# Borealis Linux — core package list (installed into the image).
+# Every line here must exist in Debian 12 bookworm (main/contrib/non-free/
+# non-free-firmware). build.sh pre-flights this list and aborts early on a
+# missing package. Packages with any availability doubt go into
+# borealis-optional.list.chroot.template instead.
+
+##### Kernel / platform (kernel upgraded to 6.12 LTS by hook 0100) #####
+linux-image-amd64
+intel-microcode
+amd64-microcode
+memtest86+
+
+##### Firmware — wide 2008–2026 hardware coverage #####
+firmware-linux
+firmware-linux-nonfree
+firmware-misc-nonfree
+firmware-amd-graphics
+firmware-iwlwifi
+firmware-atheros
+firmware-brcm80211
+firmware-realtek
+firmware-mediatek
+firmware-sof-signed
+bluez-firmware
+
+##### Borealis Shell (Wayland desktop) — no XFCE, no LXQt, ever #####
+wayfire
+waybar
+foot
+mako-notifications
+swaybg
+swaylock
+swayidle
+grim
+slurp
+wl-clipboard
+xwayland
+qtwayland5
+lightdm
+lightdm-gtk-greeter
+accountsservice
+policykit-1
+policykit-1-gnome
+
+##### XDG / portals #####
+xdg-desktop-portal
+xdg-desktop-portal-wlr
+xdg-desktop-portal-gtk
+xdg-user-dirs
+xdg-utils
+shared-mime-info
+
+##### Core applications #####
+firefox-esr
+nemo
+gvfs
+gvfs-fuse
+gvfs-backends
+gnome-text-editor
+mpv
+file-roller
+p7zip-full
+unzip
+xz-utils
+zenity
+
+##### System utilities #####
+network-manager
+network-manager-gnome
+blueman
+bluez
+rfkill
+pipewire
+pipewire-pulse
+pipewire-alsa
+wireplumber
+libspa-0.2-bluetooth
+pavucontrol
+gnome-keyring
+gnome-disk-utility
+gparted
+ntfs-3g
+dosfstools
+exfatprogs
+cups
+system-config-printer
+cups-pk-helper
+udisks2
+upower
+zram-tools
+irqbalance
+lm-sensors
+usbutils
+pciutils
+openssh-client
+curl
+wget
+git
+nano
+htop
+sudo
+gsettings-desktop-schemas
+libglib2.0-bin
+dconf-cli
+playerctl
+brightnessctl
+spice-vdagent
+qemu-guest-agent
+
+##### Fonts & icons #####
+fonts-liberation
+fonts-noto-core
+fonts-noto-color-emoji
+fonts-cantarell
+adwaita-icon-theme
+papirus-icon-theme
+
+##### Graphics / compute stack #####
+mesa-vulkan-drivers
+libvulkan1
+vulkan-tools
+mesa-utils
+
+##### Gaming #####
+gamemode
+steam-installer
+
+##### Borealis Store + custom apps runtime #####
+python3
+python3-gi
+gir1.2-gtk-3.0
+python3-apt
+python3-requests
+flatpak
+snapd
+
+##### Wine/Windows layer deps (Wine itself installed by hook 0200 w/ i386) #####
+cabextract
+winbind
+
+##### Installer: Calamares + target boot/encryption plumbing #####
+calamares
+grub2-common
+grub-pc
+grub-efi-amd64
+grub-efi-amd64-bin
+efibootmgr
+os-prober
+cryptsetup
+lvm2
+
+##### Boot visuals / emergency fallback session #####
+plymouth
+openbox
+xterm

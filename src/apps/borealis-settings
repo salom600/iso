@@ -1,0 +1,569 @@
+#!/usr/bin/env python3
+# borealis-settings — control center: appearance & theme engine, performance,
+# gaming, Windows layer, hardware info. Uses borealis_common for theming.
+
+import json
+import os
+import subprocess
+import sys
+import tarfile
+import threading
+from pathlib import Path
+
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import GLib, Gtk
+
+sys.path.insert(0, "/usr/lib/borealis")
+import borealis_common as bc  # noqa: E402
+
+PAGES = [
+    ("appearance", "Appearance & Themes"),
+    ("store", "Theme Store"),
+    ("performance", "Performance & Game Boost"),
+    ("gaming", "Gaming"),
+    ("windows", "Windows Layer"),
+    ("network", "Network & Bluetooth"),
+    ("system", "About this system"),
+    ("shortcuts", "Shortcuts"),
+]
+
+
+def section(title):
+    lbl = Gtk.Label(halign=Gtk.Align.START)
+    lbl.set_markup(f"<b>{title}</b>")
+    lbl.set_margin_bottom(6)
+    return lbl
+
+
+class Settings(Gtk.Application):
+    def __init__(self, start_page=None):
+        super().__init__(application_id="org.borealis.Settings")
+        self.start_page = start_page or "appearance"
+        self.win = None
+        self.toggles = {}
+
+    def do_activate(self):
+        if self.win:
+            self.win.present()
+            return
+        self.win = Gtk.ApplicationWindow(application=self, title="Borealis Settings",
+                                         default_width=960, default_height=640)
+        self.win.set_icon_name("borealis-settings")
+        self.build_ui()
+        self.win.show_all()
+        self.show_page(self.start_page)
+
+    # ---------- UI scaffold ----------
+    def build_ui(self):
+        outer = Gtk.Box(spacing=0)
+        self.win.add(outer)
+
+        self.sidebar = Gtk.ListBox()
+        self.sidebar.set_size_request(220, -1)
+        self.sidebar.set_margin_top(10); self.sidebar.set_margin_bottom(10)
+        for pid, label in PAGES:
+            row = Gtk.ListBoxRow()
+            l = Gtk.Label(label=label, halign=Gtk.Align.START)
+            l.set_margin_start(12); l.set_margin_top(7); l.set_margin_bottom(7)
+            row.add(l); row.page = pid
+            self.sidebar.add(row)
+        self.sidebar.connect("row-selected", self._on_sidebar)
+        outer.pack_start(self.sidebar, False, False, 0)
+
+        self.stack = Gtk.Stack()
+        self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        outer.pack_start(self.stack, True, True, 0)
+
+        for pid, _ in PAGES:
+            builder = getattr(self, f"page_{pid}")
+            page = builder()
+            sw = Gtk.ScrolledWindow()
+            sw.set_margin_start(16); sw.set_margin_end(16)
+            sw.set_margin_top(12); sw.set_margin_bottom(12)
+            sw.add(page)
+            self.stack.add_titled(sw, pid, pid.title())
+
+    def _on_sidebar(self, _box, row):
+        if row:
+            self.stack.set_visible_child_name(row.page)
+
+    def show_page(self, pid):
+        for r in self.sidebar.get_children():
+            if r.page == pid:
+                self.sidebar.select_row(r)
+                break
+
+    def wrapped(self, *children, vertical=True):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL if vertical else Gtk.Orientation.HORIZONTAL,
+                      spacing=10)
+        for c in children:
+            box.pack_start(c, False, False, 0)
+        return box
+
+    # ---------- pages ----------
+    def page_appearance(self):
+        box = self.wrapped(section("Themes — click Apply to change everything at once"))
+        self.theme_flow = Gtk.FlowBox()
+        self.theme_flow.set_min_children_per_line(2)
+        self.theme_flow.set_max_children_per_line(4)
+        self.theme_flow.set_row_spacing(10); self.theme_flow.set_column_spacing(10)
+        self.theme_flow.set_selection_mode(Gtk.SelectionMode.NONE)
+        box.pack_start(self.theme_flow, False, False, 4)
+        box.pack_start(section("Wallpapers"), False, False, 4)
+        self.wall_flow = Gtk.FlowBox()
+        self.wall_flow.set_min_children_per_line(3)
+        self.wall_flow.set_selection_mode(Gtk.SelectionMode.NONE)
+        box.pack_start(self.wall_flow, False, False, 4)
+        GLib.idle_add(self.populate_appearance)
+        return box
+
+    def populate_appearance(self):
+        current = bc.current_theme_name()
+        for child in list(self.theme_flow.get_children()):
+            self.theme_flow.remove(child)
+        for child in list(self.wall_flow.get_children()):
+            self.wall_flow.remove(child)
+        for meta in bc.list_themes():
+            card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            preview = Gtk.DrawingArea()
+            preview.set_size_request(180, 92)
+            accent = meta.get("accent", "#62d0ff")
+            bg = meta.get("preview_bg", "#101526")
+            preview.connect("draw", self._draw_preview, bg, accent)
+            name_lbl = Gtk.Label()
+            active = "  ●" if meta.get("name") == current else ""
+            name_lbl.set_markup(
+                f"<b>{GLib.markup_escape_text(meta.get('name', meta['slug']))}</b>"
+                f"<small>{active}</small>")
+            author = Gtk.Label()
+            author.set_markup(f"<small>by {GLib.markup_escape_text(meta.get('author', 'Borealis'))}"
+                              f" · {meta.get('variant', 'dark')}</small>")
+            btn = Gtk.Button(label="Apply")
+            btn.connect("clicked", self._on_apply_theme, meta["slug"])
+            card.pack_start(preview, False, False, 0)
+            card.pack_start(name_lbl, False, False, 0)
+            card.pack_start(author, False, False, 0)
+            card.pack_start(btn, False, False, 0)
+            self.theme_flow.add(card)
+
+        # wallpapers from themes + stock
+        walls = ["/usr/share/backgrounds/borealis/aurora-night.png",
+                 "/usr/share/backgrounds/borealis/glacier-light.png"]
+        for meta in bc.list_themes():
+            d = Path(meta["dir"])
+            walls += [str(d / meta.get("wallpaper", "wallpaper.png"))]
+        seen = set()
+        for w in walls:
+            if w in seen or not Path(w).is_file():
+                continue
+            seen.add(w)
+            img = Gtk.Image.new_from_file(w)
+            img.set_pixel_size(220)
+            btn = Gtk.Button()
+            btn.add(img)
+            btn.set_tooltip_text(f"Set as wallpaper: {Path(w).name}")
+            btn.connect("clicked", self._on_set_wallpaper, w)
+            self.wall_flow.add(btn)
+        self.theme_flow.show_all()
+        self.wall_flow.show_all()
+        return False
+
+    @staticmethod
+    def _draw_preview(area, cr, bg, accent):
+        w, h = area.get_allocated_width(), area.get_allocated_height()
+        cr.set_source_rgba(*Settings._parse_color(bg, (0.06, 0.08, 0.15)))
+        cr.paint()
+        cr.set_source_rgba(*Settings._parse_color(accent, (0.38, 0.82, 1.0)))
+        cr.rectangle(0, h - 12, w * 0.62, 12)
+        cr.fill()
+
+    @staticmethod
+    def _parse_color(hexstr, fallback):
+        hx = hexstr.lstrip("#")
+        if len(hx) == 6:
+            try:
+                return tuple(int(hx[i:i + 2], 16) / 255 for i in (0, 2, 4)) + (1.0,)
+            except Exception:
+                pass
+        return fallback + (1.0,)
+
+    def _on_apply_theme(self, _b, slug):
+        def work():
+            ok = bc.apply_theme(slug)
+            GLib.idle_add(lambda: (bc.notify("Borealis Themes",
+                                             "Theme applied" if ok else "Theme not found"),
+                                   self.populate_appearance()) and False)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_set_wallpaper(self, _b, path):
+        cur = bc.CURRENT_DIR
+        cur.mkdir(parents=True, exist_ok=True)
+        import shutil
+        shutil.copyfile(path, cur / "wallpaper")
+        bc.run(["pkill", "-x", "swaybg"])
+        os.system("setsid borealis-wallpaper >/dev/null 2>&1 &")
+        bc.notify("Borealis", "Wallpaper updated")
+
+    def page_store(self):
+        box = self.wrapped(section("Theme Store — community themes"))
+        url_row = Gtk.Box(spacing=8)
+        self.store_url_entry = Gtk.Entry()
+        url_file = bc.THEME_STORE_URL_FILE
+        self.store_url_entry.set_text(
+            url_file.read_text().strip() if url_file.is_file() else bc.DEFAULT_THEME_STORE_URL)
+        self.store_url_entry.set_hexpand(True)
+        btn_reload = Gtk.Button(label="Browse")
+        btn_reload.connect("clicked", self._on_store_load)
+        btn_import = Gtk.Button(label="Import .borealistheme…")
+        btn_import.connect("clicked", self._on_store_import)
+        url_row.pack_start(self.store_url_entry, True, True, 0)
+        url_row.pack_start(btn_reload, False, False, 0)
+        url_row.pack_start(btn_import, False, False, 0)
+        box.pack_start(url_row, False, False, 4)
+        self.store_list = Gtk.ListBox()
+        self.store_list.set_selection_mode(Gtk.SelectionMode.NONE)
+        box.pack_start(Gtk.Label(label="Press Browse to fetch the community index."), False, False, 8)
+        box.pack_start(self.store_list, False, False, 4)
+        return box
+
+    def _on_store_load(self, *_):
+        url = self.store_url_entry.get_text().strip()
+        bc.STATE_DIR.mkdir(parents=True, exist_ok=True)
+        bc.THEME_STORE_URL_FILE.write_text(url)
+        for c in self.store_list.get_children():
+            self.store_list.remove(c)
+        self.store_list.add(Gtk.Label(label="Fetching index…"))
+        self.store_list.show_all()
+
+        def work():
+            items, err = [], None
+            try:
+                import requests
+                idx = requests.get(url, timeout=15).json()
+                items = idx.get("themes", idx.get("items", []))
+            except Exception as e:
+                err = str(e)
+            GLib.idle_add(lambda: self._fill_store(items, err) and False)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _fill_store(self, items, err):
+        for c in self.store_list.get_children():
+            self.store_list.remove(c)
+        if err:
+            self.store_list.add(Gtk.Label(label=f"Could not reach the theme index:\n{err}"))
+        elif not items:
+            self.store_list.add(Gtk.Label(label="The index is empty — community themes can be submitted as pull requests to the themes repository."))
+        for it in items:
+            row = Gtk.Box(spacing=10)
+            row.set_margin_start(8); row.set_margin_end(8)
+            row.set_margin_top(6); row.set_margin_bottom(6)
+            txt = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            n = Gtk.Label(halign=Gtk.Align.START)
+            n.set_markup(f"<b>{GLib.markup_escape_text(it.get('name', '?'))}</b>"
+                         f" <small>v{it.get('version', '?')} by {GLib.markup_escape_text(it.get('author', '?'))}</small>")
+            d = Gtk.Label(halign=Gtk.Align.START)
+            d.set_markup(f"<small>{GLib.markup_escape_text(it.get('description', ''))}</small>")
+            txt.pack_start(n, False, False, 0)
+            txt.pack_start(d, False, False, 0)
+            row.pack_start(txt, True, True, 0)
+            btn = Gtk.Button(label="Download & Apply")
+            btn.connect("clicked", self._on_store_install, it)
+            row.pack_start(btn, False, False, 0)
+            self.store_list.add(row)
+        self.store_list.show_all()
+        return False
+
+    def _on_store_install(self, _b, item):
+        url = item.get("url")
+        if not url:
+            bc.notify("Borealis Theme Store", "Entry has no download URL", urgency="critical")
+            return
+
+        def work():
+            try:
+                import requests, tempfile
+                with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as tmp:
+                    tmp.write(requests.get(url, timeout=120).content)
+                    tarball = tmp.name
+                dest = bc.USER_THEMES
+                dest.mkdir(parents=True, exist_ok=True)
+                with tarfile.open(tarball) as tf:
+                    tf.extractall(dest)  # theme dirs ship a top-level <slug>/ folder
+                os.unlink(tarball)
+                slug = item.get("slug") or (url.rsplit("/", 1)[-1].split(".")[0])
+                ok = bc.apply_theme(slug)
+                msg = "Installed and applied" if ok else "Downloaded (Apply from Appearance)"
+                GLib.idle_add(lambda: (bc.notify("Borealis Theme Store", msg),
+                                       self.populate_appearance()) and False)
+            except Exception as e:
+                GLib.idle_add(lambda: bc.notify("Borealis Theme Store",
+                                                f"Failed: {e}", urgency="critical") and False)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_store_import(self, *_):
+        dlg = Gtk.FileChooserNative(parent=self.win, title="Choose a .borealistheme tarball",
+                                    action=Gtk.FileChooserAction.OPEN)
+        filt = Gtk.FileFilter(); filt.set_name("Borealis themes")
+        filt.add_pattern("*.borealistheme"); filt.add_pattern("*.tar.gz")
+        dlg.add_filter(filt)
+        if dlg.run() == Gtk.ResponseType.ACCEPT:
+            f = dlg.get_filename()
+            dlg.destroy()
+            try:
+                bc.USER_THEMES.mkdir(parents=True, exist_ok=True)
+                with tarfile.open(f) as tf:
+                    tf.extractall(bc.USER_THEMES)
+                bc.notify("Borealis Theme Store", "Theme imported — find it in Appearance")
+                self.populate_appearance()
+            except Exception as e:
+                bc.notify("Borealis Theme Store", f"Import failed: {e}", urgency="critical")
+        else:
+            dlg.destroy()
+
+    def page_performance(self):
+        box = self.wrapped(section("Performance"))
+        box.pack_start(self._toggle("Performance Mode",
+                                    "Disables animations & transparency (best for 2008–2015 GPUs).",
+                                    "perf", self._get_perf, self._set_perf), False, False, 0)
+        box.pack_start(self._toggle("Game Boost",
+                                    "CPU governor → performance, pauses background services, disables effects.",
+                                    "boost", self._get_boost, self._set_boost), False, False, 0)
+        self.perf_status = Gtk.Label()
+        box.pack_start(self.perf_status, False, False, 6)
+        box.pack_start(section("Memory compression"), False, False, 8)
+        self.zram_lbl = Gtk.Label(label="zram: checking…")
+        box.pack_start(self.zram_lbl, False, False, 0)
+        GLib.idle_add(self._refresh_perf)
+        return box
+
+    def _toggle(self, title, subtitle, key, getter, setter):
+        row = Gtk.Box(spacing=10)
+        txt = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        t = Gtk.Label(halign=Gtk.Align.START)
+        t.set_markup(f"<b>{title}</b>")
+        s = Gtk.Label(halign=Gtk.Align.START)
+        s.set_markup(f"<small>{subtitle}</small>")
+        txt.pack_start(t, False, False, 0); txt.pack_start(s, False, False, 0)
+        sw = Gtk.Switch()
+        sw.set_active(getter())
+        sw.connect("state-set", lambda b, st: (setter(st), True)[1])
+        self.toggles[key] = sw
+        row.pack_start(txt, True, True, 0)
+        row.pack_start(sw, False, False, 0)
+        return row
+
+    def _get_perf(self):
+        return bc.perf_mode_enabled()
+
+    def _set_perf(self, state):
+        bc.run(["borealis-perf", "on" if state else "off"])
+
+    def _get_boost(self):
+        return bc.boost_enabled()
+
+    def _set_boost(self, state):
+        bc.run(["borealis-boost", "on" if state else "off"])
+
+    def _refresh_perf(self):
+        r = bc.run(["cat", "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"])
+        gov = r.stdout.strip() or "n/a"
+        r2 = bc.run(["zramctl"], timeout=10)
+        zram = "active" if "zram" in (r2.stdout or "") else "not active"
+        with open("/proc/meminfo") as f:
+            mi = {l.split(":")[0]: int(l.split()[1]) for l in f if ":" in l}
+        total = mi.get("MemTotal", 0) // 1024
+        avail = mi.get("MemAvailable", 0) // 1024
+        self.perf_status.set_markup(
+            f"<small>CPU governor: <b>{gov}</b> · zram: <b>{zram}</b> · "
+            f"RAM: <b>{total - avail}</b> MB used of {total} MB</small>")
+        self.zram_lbl.set_markup(
+            "<small>zram compresses memory instead of hitting the disk — "
+            "it doubles usable RAM on old machines.</small>")
+        for key, sw in self.toggles.items():
+            getter = self._get_perf if key == "perf" else self._get_boost
+            sw.set_active(getter())
+        return False
+
+    def page_gaming(self):
+        box = self.wrapped(section("Gaming"))
+        box.pack_start(Gtk.Label(label="Wine prefixes:"), False, False, 0)
+        self.wine_status = Gtk.Label(label="checking…")
+        box.pack_start(self.wine_status, False, False, 0)
+        row = Gtk.Box(spacing=8)
+        for label, kind in (("Prepare apps prefix", "apps"), ("Prepare games prefix (DXVK)", "games")):
+            b = Gtk.Button(label=label)
+            b.connect("clicked", self._on_setup_prefix, kind)
+            row.pack_start(b, False, False, 0)
+        box.pack_start(row, False, False, 6)
+        box.pack_start(section("Tools"), False, False, 8)
+        tools = Gtk.Box(spacing=8)
+        for label, pkgs in (("Install MangoHud", ["mangohud"]),
+                            ("Install Lutris", ["lutris"]),
+                            ("Install Steam", ["steam-installer"])):
+            b = Gtk.Button(label=label)
+            b.connect("clicked", self._on_install_pkgs, pkgs)
+            tools.pack_start(b, False, False, 0)
+        box.pack_start(tools, False, False, 0)
+        box.pack_start(Gtk.Label(
+            label="Launch any game with acceleration:\n  borealis-gamerun -- <command>\n"
+                  "Steam: right-click a game → Properties → Launch options:\n"
+                  "  borealis-gamerun -- %command%"), False, False, 8)
+        GLib.idle_add(self._refresh_wine)
+        return box
+
+    def _refresh_wine(self):
+        r = bc.run(["borealis-wine", "status"])
+        self.wine_status.set_markup(f"<small>{GLib.markup_escape_text(r.stdout or r.stderr or 'n/a')}</small>")
+        return False
+
+    def _on_setup_prefix(self, _b, kind):
+        subprocess.Popen(["sh", "-c", f"borealis-wine setup {kind} --gui"],
+                         start_new_session=True)
+        GLib.timeout_add_seconds(60, self._refresh_wine)
+        return False
+
+    def _on_install_pkgs(self, _b, pkgs):
+        subprocess.Popen(["pkexec", "apt-get", "install", "-y"] + pkgs,
+                         start_new_session=True)
+
+    def page_windows(self):
+        box = self.wrapped(section("Windows Layer (Wine + DXVK)"))
+        intro = Gtk.Label()
+        intro.set_markup(
+            "Double-click any <b>.exe</b> file and Borealis runs it — the right Wine\n"
+            "prefix (apps/games) is prepared automatically on first use.\n"
+            "Games get DXVK (DirectX → Vulkan) automatically.")
+        intro.set_justify(Gtk.Justification.LEFT)
+        box.pack_start(intro, False, False, 6)
+        row = Gtk.Box(spacing=8)
+        b1 = Gtk.Button(label="Run a Windows program…")
+        b1.connect("clicked", self._on_run_exe)
+        b2 = Gtk.Button(label="Open Borealis Store → Windows")
+        b2.connect("clicked", lambda *_: subprocess.Popen(["borealis-store"],
+                                                          start_new_session=True))
+        row.pack_start(b1, False, False, 0)
+        row.pack_start(b2, False, False, 0)
+        box.pack_start(row, False, False, 8)
+        box.pack_start(section("Prefixes"), False, False, 6)
+        self.win_status = Gtk.Label(label="checking…")
+        box.pack_start(self.win_status, False, False, 0)
+        GLib.idle_add(self._refresh_wine)
+        return box
+
+    def _on_run_exe(self, *_):
+        dlg = Gtk.FileChooserNative(parent=self.win, title="Choose a Windows program",
+                                    action=Gtk.FileChooserAction.OPEN)
+        filt = Gtk.FileFilter(); filt.set_name("Windows programs")
+        for p in ("*.exe", "*.msi", "*.msu", "*.bat"):
+            filt.add_pattern(p)
+        dlg.add_filter(filt)
+        if dlg.run() == Gtk.ResponseType.ACCEPT:
+            f = dlg.get_filename()
+            dlg.destroy()
+            subprocess.Popen(["borealis-exe-launcher", f], start_new_session=True)
+        else:
+            dlg.destroy()
+
+    def page_network(self):
+        box = self.wrapped(section("Network"))
+        r = bc.run(["nmcli", "general", "status"])
+        lbl = Gtk.Label()
+        lbl.set_markup(f"<small>{GLib.markup_escape_text(r.stdout or 'nmcli unavailable')}</small>")
+        box.pack_start(lbl, False, False, 4)
+        b = Gtk.Button(label="Open network settings (nm-connection-editor)")
+        b.connect("clicked", lambda *_: subprocess.Popen(["nm-connection-editor"],
+                                                         start_new_session=True))
+        box.pack_start(b, False, False, 8)
+        box.pack_start(section("Bluetooth"), False, False, 8)
+        r = bc.run(["bluetoothctl", "show"])
+        on = "powered: yes" in (r.stdout or "")
+        bl = Gtk.Label()
+        bl.set_markup(f"<small>Bluetooth is {'ON' if on else 'off or unavailable'}.</small>")
+        box.pack_start(bl, False, False, 4)
+        b2 = Gtk.Button(label="Open Bluetooth manager (blueman)")
+        b2.connect("clicked", lambda *_: subprocess.Popen(["blueman-manager"],
+                                                          start_new_session=True))
+        box.pack_start(b2, False, False, 0)
+        return box
+
+    def page_system(self):
+        box = self.wrapped(section("About this system"))
+        self.sys_lbl = Gtk.Label()
+        self.sys_lbl.set_halign(Gtk.Align.START)
+        box.pack_start(self.sys_lbl, False, False, 6)
+        box.pack_start(section("Hardware"), False, False, 8)
+        self.hw_lbl = Gtk.Label()
+        self.hw_lbl.set_halign(Gtk.Align.START)
+        box.pack_start(self.hw_lbl, False, False, 6)
+        GLib.idle_add(self._refresh_system)
+        return box
+
+    def _refresh_system(self):
+        def grab(cmd, pattern=None):
+            r = bc.run(cmd)
+            out = r.stdout.strip()
+            if pattern:
+                for line in out.splitlines():
+                    if pattern in line:
+                        return line.split(":", 1)[-1].strip() if ":" in line else line
+            return out.splitlines()[0] if out else "n/a"
+
+        rel = "Borealis Linux (see /etc/borealis-release)"
+        try:
+            rel = Path("/etc/borealis-release").read_text().strip()
+        except Exception:
+            pass
+        kernel = grab(["uname", "-r"])
+        cpu = grab(["lscpu"], "Model name")
+        gpu = bc.run(["lspci"]).stdout
+        gpu_line = next((l.split(":", 1)[-1].strip() for l in gpu.splitlines()
+                         if "VGA" in l or "3D" in l), "n/a")
+        with open("/proc/meminfo") as f:
+            total = next(int(l.split()[1]) for l in f if l.startswith("MemTotal")) // 1024
+        self.sys_lbl.set_markup(
+            f"<b>{GLib.markup_escape_text(rel)}</b>\n"
+            f"Kernel: {GLib.markup_escape_text(kernel)} · Debian 12 base")
+        self.hw_lbl.set_markup(
+            f"CPU: {GLib.markup_escape_text(cpu)}\n"
+            f"GPU: {GLib.markup_escape_text(gpu_line)}\n"
+            f"RAM: {total} MB")
+        return False
+
+    def page_shortcuts(self):
+        rows = [
+            ("Start menu", "Super+Space / Ctrl+Esc"),
+            ("Terminal", "Super+T / Ctrl+Alt+T"),
+            ("Files", "Super+E"),
+            ("Web browser", "Super+W"),
+            ("Settings", "Super+I"),
+            ("Quick settings", "Super+A"),
+            ("Close window", "Super+Q"),
+            ("Lock screen", "Super+L"),
+            ("Snap window", "Super+Arrow keys"),
+            ("Switch windows", "Alt+Tab"),
+            ("Desktop overview", "Super+Tab"),
+            ("Screenshot", "Print (full) · Super+Shift+S (area)"),
+            ("Volume", "Volume keys / scroll on dock"),
+        ]
+        box = self.wrapped(section("Keyboard shortcuts"))
+        grid = Gtk.Grid(column_spacing=18, row_spacing=8)
+        for i, (a, k) in enumerate(rows):
+            grid.attach(Gtk.Label(label=a, halign=Gtk.Align.START), 0, i, 1, 1)
+            kk = Gtk.Label(label=k, halign=Gtk.Align.START)
+            kk.set_markup(f"<tt>{k}</tt>")
+            grid.attach(kk, 1, i, 1, 1)
+        box.pack_start(grid, False, False, 6)
+        return box
+
+
+def main():
+    start_page = None
+    for i, a in enumerate(sys.argv):
+        if a == "--page" and i + 1 < len(sys.argv):
+            start_page = sys.argv[i + 1]
+    Settings(start_page).run(sys.argv)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,23 @@
+[Default Applications]
+text/plain=org.gnome.TextEditor.desktop
+application/pdf=firefox-esr.desktop
+image/png=org.gnome.eog.desktop;firefox-esr.desktop
+image/jpeg=org.gnome.eog.desktop;firefox-esr.desktop
+video/mp4=mpv.desktop
+audio/mpeg=mpv.desktop
+application/zip=file-roller.desktop
+application/x-7z-compressed=file-roller.desktop
+inode/directory=nemo.desktop
+x-scheme-handler/http=firefox-esr.desktop
+x-scheme-handler/https=firefox-esr.desktop
+
+# Windows executables & installers -> Borealis Windows Layer (Wine)
+application/x-ms-dos-executable=borealis-exe-launcher.desktop
+application/x-ms-installer=borealis-exe-launcher.desktop
+application/x-msdownload=borealis-exe-launcher.desktop
+
+[Added Associations]
+application/x-ms-dos-executable=borealis-exe-launcher.desktop
+application/x-ms-installer=borealis-exe-launcher.desktop
+application/x-executable=borealis-appimage-launcher.desktop
+application/x-mswinurl=borealis-exe-launcher.desktop

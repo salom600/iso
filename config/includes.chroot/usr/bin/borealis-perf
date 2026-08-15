@@ -1,0 +1,52 @@
+#!/bin/sh
+# borealis-perf — Performance Mode (shell half, user-level):
+#   - wayfire: unload animate/alpha plugins (config auto-reloads)
+#   - dock: switch to the opaque, flat performance stylesheet
+#   - flag file so the state survives re-login
+# Used by Settings, Quick Settings and Game Boost.
+set -u
+
+CFG="$HOME/.config/wayfire.ini"
+FLAG="$HOME/.config/borealis/perf-mode"
+RUN="${XDG_RUNTIME_DIR:-/tmp}/borealis-perf"
+
+action="${1:-status}"
+
+set_plugins() {
+    # $1 = "strip" (remove animate/alpha) or "restore"
+    [ -f "$CFG" ] || return 0
+    if [ "$1" = "strip" ]; then
+        sed -i '/^plugins[ ]*=/ s/[ ]animate//; /^plugins[ ]*=/ s/[ ]alpha//' "$CFG"
+    else
+        grep -q '^plugins[ ]*=.* animate' "$CFG" || \
+            sed -i '/^plugins[ ]*=/ s/$/ animate/' "$CFG"
+        grep -q '^plugins[ ]*=.* alpha' "$CFG" || \
+            sed -i '/^plugins[ ]*=/ s/$/ alpha/' "$CFG"
+    fi
+}
+
+restart_bar() {
+    pkill -x waybar 2>/dev/null
+    sleep 0.3
+    setsid borealis-bar >/dev/null 2>&1 &
+}
+
+case "$action" in
+    on)
+        mkdir -p "$(dirname "$FLAG")"
+        touch "$FLAG"
+        echo on > "$RUN"
+        set_plugins strip
+        restart_bar
+        ;;
+    off)
+        rm -f "$FLAG"
+        echo off > "$RUN" 2>/dev/null || true
+        set_plugins restore
+        restart_bar
+        ;;
+    status)
+        if [ -f "$FLAG" ]; then echo on; else echo off; fi
+        ;;
+    *) echo "usage: borealis-perf on|off|status" >&2; exit 2 ;;
+esac

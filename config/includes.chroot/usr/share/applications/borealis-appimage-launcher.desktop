@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Run AppImage
+Comment=Make an AppImage executable and run it, optionally adding it to the menu
+Exec=borealis-appimage-launcher %f
+Icon=borealis
+Terminal=false
+Categories=Utility;
+MimeType=application/x-executable;application/vnd.appimage;
+NoDisplay=true

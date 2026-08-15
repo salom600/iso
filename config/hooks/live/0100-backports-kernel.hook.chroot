@@ -1,0 +1,23 @@
+#!/bin/sh
+#
+# 0100 — Upgrade to the Debian backports LTS kernel (6.12 family) for modern
+# hardware + keep broad legacy support; purge the older stable kernel so the
+# ISO carries exactly one kernel. If backports is unreachable we keep the
+# stable 6.1 LTS kernel (broad hw support, just older) and warn.
+#
+set -e
+export DEBIAN_FRONTEND=noninteractive
+
+echo "HOOK 0100: installing backports LTS kernel"
+apt-get update -qq
+
+if apt-get install -y -qq -t bookworm-backports linux-image-amd64; then
+    # Purge all but the newest installed linux-image-<version> package.
+    dpkg-query -W -f='${Package}\t${Version}\n' 'linux-image-[0-9]*' 2>/dev/null \
+        | sort -t"$(printf '\t')" -k2,2 -V | head -n -1 | cut -f1 \
+        | xargs -r apt-get purge -y -qq
+    apt-get autoremove -y -qq || true
+    echo "HOOK 0100: kernel is now: $(ls /boot/vmlinuz-* 2>/dev/null | tail -1)"
+else
+    echo "HOOK 0100: WARNING — backports kernel unavailable; keeping stable 6.1 LTS" >&2
+fi

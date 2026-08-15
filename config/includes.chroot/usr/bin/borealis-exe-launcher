@@ -1,0 +1,40 @@
+#!/bin/sh
+# borealis-exe-launcher — double-click a .exe, it just runs.
+# Chooses prefix (apps/games), prepares it on first use (with a GUI progress
+# dialog when possible), and launches through Wine.
+set -u
+
+EXE="${1:?usage: borealis-exe-launcher <file.exe>}"
+[ -f "$EXE" ] || { echo "not a file: $EXE" >&2; exit 1; }
+
+command -v wine >/dev/null 2>&1 || {
+    if command -v zenity >/dev/null 2>&1; then
+        zenity --error --title="Borealis Windows Layer" \
+            --text="Wine is not installed.\nOpen the Borealis Store → Windows tab to install it." \
+            2>/dev/null
+    fi
+    exit 3
+}
+
+# MSI installers go through msiexec in the apps prefix
+case "$EXE" in
+    *.msi) exec borealis-wine run apps msiexec /i "$EXE" ;;
+esac
+
+if command -v zenity >/dev/null 2>&1; then
+    KIND=$(zenity --question --title="Borealis Windows Layer" \
+        --text="How should this Windows program run?\n\n•  Application — utilities, office tools, setup programs\n•  Game — adds DXVK (DirectX → Vulkan) for best performance" \
+        --ok-label="Application" --cancel-label="Game" 2>/dev/null \
+        && echo apps || echo games)
+else
+    KIND=apps
+fi
+
+if ! [ -f "$HOME/Wine/$KIND/.borealis-ready" ]; then
+    notify-send "Borealis Windows Layer" \
+        "First run: preparing the '$KIND' prefix (fonts, runtimes, internet needed)…"
+    borealis-wine setup "$KIND" --gui || exit 4
+fi
+
+notify-send "Borealis Windows Layer" "Launching $(basename "$EXE")"
+exec borealis-wine run "$KIND" "$EXE"

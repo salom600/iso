@@ -1,0 +1,24 @@
+{
+  "name": "Borealis Community Themes",
+  "version": 1,
+  "updated": "2026-08-15",
+  "note": "Theme-store index format. 'slug' must match the top-level directory inside the tarball. Community submissions: fork the repository, add your packed theme + entry, open a pull request.",
+  "themes": [
+    {
+      "slug": "aurora-night",
+      "name": "Aurora Night",
+      "version": "1.0",
+      "author": "Borealis Project",
+      "description": "Anime-inspired starry night with glassy dark dock (ships with the OS).",
+      "url": "https://raw.githubusercontent.com/borealis-linux/themes/main/aurora-night-1.0.borealistheme"
+    },
+    {
+      "slug": "glacier-light",
+      "name": "Glacier Light",
+      "version": "1.0",
+      "author": "Borealis Project",
+      "description": "Clean professional daylight theme (ships with the OS).",
+      "url": "https://raw.githubusercontent.com/borealis-linux/themes/main/glacier-light-1.0.borealistheme"
+    }
+  ]
+}

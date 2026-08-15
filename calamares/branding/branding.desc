@@ -1,0 +1,28 @@
+# Borealis Linux installer branding.
+componentName: borealis
+
+strings:
+    productName:         "Borealis Linux"
+    shortProductName:    "Borealis"
+    version:             "1.0 'Glacier'"
+    shortVersion:        "1.0"
+    versionedName:       "Borealis Linux 1.0 'Glacier'"
+    shortVersionedName:  "Borealis 1.0"
+    bootloaderEntryName: "Borealis Linux"
+    productUrl:          "https://borealis-linux.example"
+    supportUrl:          "https://borealis-linux.example/support"
+    knownIssuesUrl:      "https://borealis-linux.example/issues"
+    releaseNotesUrl:     "https://borealis-linux.example/releases"
+
+images:
+    logo:           "logo.png"
+    productIcon:    "logo.png"
+    productLogo:    "logo.png"
+    productWelcome: "logo.png"
+
+slideshow: "show.qml"
+
+style:
+    sidebarBackground:    "#10182a"
+    sidebarText:          "#dbe4f5"
+    sidebarTextSelect:    "#7ee0ff"

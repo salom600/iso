@@ -1,0 +1,16 @@
+#!/bin/sh
+# borealis-bar — start the dock with the style appropriate to the current
+# mode: active theme's glass style, or its performance variant when
+# Performance Mode / Game Boost is enabled.
+CURRENT="$HOME/.local/share/borealis/current"
+PERF_FLAG="$HOME/.config/borealis/perf-mode"
+
+if [ -f "$PERF_FLAG" ] && [ -f "$CURRENT/waybar-perf.css" ]; then
+    STYLE="$CURRENT/waybar-perf.css"
+elif [ -f "$CURRENT/waybar.css" ]; then
+    STYLE="$CURRENT/waybar.css"
+else
+    STYLE="$HOME/.config/waybar/style-default.css"
+fi
+
+exec waybar -s "$STYLE"

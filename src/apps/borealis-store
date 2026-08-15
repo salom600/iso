@@ -1,0 +1,503 @@
+#!/usr/bin/env python3
+# borealis-store — unified software center: APT + Flatpak + Snap + AppImage,
+# plus a Windows-apps tab driving the Wine layer.
+# Dependencies (all in the image): python3-gi, gir1.2-gtk-3.0, python3-apt,
+# python3-requests, flatpak, snapd, pkexec (polkit).
+
+import json
+import os
+import sys
+import threading
+from pathlib import Path
+
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import GLib, Gtk
+
+sys.path.insert(0, "/usr/lib/borealis")
+import borealis_common as bc  # noqa: E402
+
+try:
+    import apt
+    HAVE_PYAPT = True
+except Exception:
+    HAVE_PYAPT = False
+
+CATALOG_DIR = Path("/usr/share/borealis/catalogs")
+
+CATEGORIES = [
+    ("all", "All"), ("browsers", "Browsers"), ("office", "Office"),
+    ("multimedia", "Multimedia & Graphics"), ("development", "Development"),
+    ("games", "Games"), ("utilities", "Utilities"), ("system", "System"),
+    ("windows", "Windows programs"),
+]
+
+# Curated APT catalog — name is the Debian package name.
+APT_CATALOG = [
+    # id/name, package, category, friendly description
+    ("Firefox ESR", "firefox-esr", "browsers", "Mozilla's long-support web browser (installed by default)"),
+    ("Chromium", "chromium", "browsers", "Open-source web browser from the Chromium project"),
+    ("GNOME Web", "epiphany-browser", "browsers", "Lightweight WebKit-based browser"),
+    ("LibreOffice", "libreoffice", "office", "Complete office suite — documents, sheets, slides (Word/Excel/PowerPoint compatible)"),
+    ("LibreOffice (Qt)", "libreoffice-qt5", "office", "LibreOffice with Qt interface"),
+    ("Thunderbird", "thunderbird", "office", "Email, calendar and chat client"),
+    ("Evince", "evince", "office", "Document viewer (PDF)"),
+    ("VLC", "vlc", "multimedia", "Plays everything — the universal media player"),
+    ("MPV", "mpv", "multimedia", "Minimalist, powerful media player (installed)"),
+    ("Audacity", "audacity", "multimedia", "Audio editor and recorder"),
+    ("GIMP", "gimp", "multimedia", "Raster image editor (Photoshop-like)"),
+    ("Inkscape", "inkscape", "multimedia", "Vector graphics editor (Illustrator-like)"),
+    ("Krita", "krita", "multimedia", "Digital painting suite"),
+    ("Blender", "blender", "multimedia", "3D creation suite"),
+    ("Kdenlive", "kdenlive", "multimedia", "Video editor"),
+    ("OBS Studio", "obs-studio", "multimedia", "Streaming and screen recording"),
+    ("HandBrake", "handbrake", "multimedia", "Video transcoder"),
+    ("Shotwell", "shotwell", "multimedia", "Photo manager"),
+    ("Git", "git", "development", "Version control (installed)"),
+    ("Geany", "geany", "development", "Lightweight IDE"),
+    ("GNOME Builder", "gnome-builder", "development", "GTK IDE"),
+    ("Emacs", "emacs", "development", "Extensible text editor"),
+    ("Vim", "vim", "development", "The classic modal editor"),
+    ("Meld", "meld", "development", "Visual diff and merge tool"),
+    ("Docker", "docker.io", "development", "Container engine"),
+    ("VirtualBox", "virtualbox", "development", "x86 virtualization (from contrib)"),
+    ("Steam", "steam-installer", "games", "Valve's game platform with Proton"),
+    ("Lutris", "lutris", "games", "Open gaming platform manager (Wine/Proton/etc.)"),
+    ("GameMode", "gamemode", "games", "Feral GameMode daemon (installed)"),
+    ("MangoHud", "mangohud", "games", "In-game performance overlay"),
+    ("0 A.D.", "0ad", "games", "Open-source RTS"),
+    ("SuperTuxKart", "supertuxkart", "games", "Kart racer"),
+    ("Battle for Wesnoth", "wesnoth", "games", "Turn-based strategy"),
+    ("Synaptic", "synaptic", "system", "Classic Debian package manager GUI"),
+    ("GParted", "gparted", "system", "Partition editor (installed)"),
+    ("Timeshift-like btrfs tools", "btrfs-progs", "system", "Btrfs filesystem utilities"),
+    ("Fonts: Noto CJK", "fonts-noto-cjk", "system", "Chinese/Japanese/Korean fonts"),
+    ("Gnome System Monitor", "gnome-system-monitor", "system", "Processes and resource graphs"),
+    ("Archive: unrar", "unrar", "utilities", "RAR archive extraction (non-free)"),
+    ("FileZilla", "filezilla", "utilities", "FTP/SFTP client"),
+    ("Remmina", "remmina", "utilities", "Remote desktop client (RDP/VNC)"),
+    ("qBittorrent", "qbittorrent", "utilities", "BitTorrent client"),
+    ("Simple Scan", "simple-scan", "utilities", "Document scanner"),
+]
+
+# Curated Flatpak (flathub, user-scope) catalog.
+FLATPAK_CATALOG = [
+    ("Visual Studio Code", "com.visualstudio.code", "development", "Microsoft's editor"),
+    ("Spotify", "com.spotify.Client", "multimedia", "Music streaming"),
+    ("Discord", "com.discordapp.Discord", "utilities", "Chat for communities"),
+    ("Telegram", "org.telegram.desktop", "utilities", "Messaging"),
+    ("ProtonUp-Qt", "net.davidotek.pupgui2", "games", "Manage Proton-GE / Wine-GE for Steam & Lutris"),
+    ("Flatseal", "com.github.tchx84.Flatseal", "system", "Flatpak permission manager"),
+    ("Bottles", "com.usebottles.bottles", "windows", "Managed Wine prefixes with a modern UI"),
+    ("Heroic Games Launcher", "com.heroicgameslauncher.hgl", "games", "Epic/GOG games launcher"),
+]
+
+SOURCE_COLORS = {"apt": "#62d0ff", "flatpak": "#8ce0b0", "snap": "#ffd479",
+                 "appimage": "#d2a6ff", "windows": "#ff9ec1", "info": "#9aa7c0"}
+
+
+class AppEntry:
+    def __init__(self, name, source, category, desc, *, pkg=None, flatpak=None,
+                 snap=None, url=None, verb=None, prefix=None, homepage=None):
+        self.name, self.source, self.category, self.desc = name, source, category, desc
+        self.pkg, self.flatpak, self.snap = pkg, flatpak, snap
+        self.url, self.verb, self.prefix, self.homepage = url, verb, prefix, homepage
+        self.installed = False
+        self.row = None
+
+
+class Store(Gtk.Application):
+    def __init__(self):
+        super().__init__(application_id="org.borealis.Store")
+        self.apps = {}
+        self.apt_cache = None
+        self.category = "all"
+        self.query = ""
+        self.win = None
+
+    # ---------- lifecycle ----------
+    def do_activate(self):
+        if self.win:
+            self.win.present()
+            return
+        self.win = Gtk.ApplicationWindow(application=self, title="Borealis Store",
+                                         default_width=1040, default_height=680)
+        self.win.set_icon_name("borealis-store")
+        self.build_ui()
+        self.win.show_all()
+        self.set_category("all")
+        threading.Thread(target=self.load_state, daemon=True).start()
+
+    # ---------- UI ----------
+    def build_ui(self):
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.win.add(outer)
+
+        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        header.set_margin_top(10); header.set_margin_bottom(6)
+        header.set_margin_start(12); header.set_margin_end(12)
+        outer.pack_start(header, False, False, 0)
+
+        title = Gtk.Label(); title.set_markup("<b>Borealis Store</b>")
+        header.pack_start(title, False, False, 4)
+
+        self.search = Gtk.SearchEntry(placeholder_text="Search all sources…")
+        self.search.set_hexpand(True)
+        self.search.connect("changed", self.on_search)
+        header.pack_start(self.search, True, True, 6)
+
+        self.spinner = Gtk.Spinner()
+        header.pack_start(self.spinner, False, False, 4)
+
+        body = Gtk.Box(spacing=10)
+        body.set_margin_start(10); body.set_margin_end(10); body.set_margin_bottom(10)
+        outer.pack_start(body, True, True, 0)
+
+        # category sidebar
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_size_request(200, -1)
+        self.sidebar = Gtk.ListBox()
+        for cat_id, label in CATEGORIES:
+            row = Gtk.ListBoxRow()
+            lbl = Gtk.Label(label=label, halign=Gtk.Align.START)
+            lbl.set_margin_top(6); lbl.set_margin_bottom(6)
+            lbl.set_margin_start(8)
+            row.add(lbl); row.cat = cat_id
+            self.sidebar.add(row)
+        self.sidebar.connect("row-selected", self.on_category)
+        scroll.add(self.sidebar)
+        body.pack_start(scroll, False, False, 0)
+
+        # stack: discover / installed / updates
+        self.stack = Gtk.Stack()
+        self.stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
+        body.pack_start(self.stack, True, True, 0)
+
+        self.app_list_box = Gtk.ListBox()
+        self.app_list_box.set_selection_mode(Gtk.SelectionMode.NONE)
+        sw = Gtk.ScrolledWindow(); sw.add(self.app_list_box)
+        self.stack.add_titled(sw, "discover", "Discover")
+
+        self.installed_box = Gtk.ListBox()
+        self.installed_box.set_selection_mode(Gtk.SelectionMode.NONE)
+        sw2 = Gtk.ScrolledWindow(); sw2.add(self.installed_box)
+        self.stack.add_titled(sw2, "installed", "Installed")
+
+        self.updates_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        self.stack.add_titled(self.updates_box, "updates", "Updates")
+
+        switcher = Gtk.StackSwitcher()
+        switcher.set_stack(self.stack)
+        header.pack_start(switcher, False, False, 4)
+        self.build_updates_page()
+
+    def build_updates_page(self):
+        bar = Gtk.Box(spacing=8)
+        self.updates_box.pack_start(bar, False, False, 0)
+        btn = Gtk.Button(label="Update everything (APT)")
+        btn.connect("clicked", self.on_update_all_apt)
+        bar.pack_start(btn, False, False, 0)
+        btn2 = Gtk.Button(label="Update Flatpaks")
+        btn2.connect("clicked", lambda *a: self.run_in_dialog(
+            "Updating Flatpaks", [["flatpak", "update", "-y", "--noninteractive"]]))
+        bar.pack_start(btn2, False, False, 0)
+        self.updates_label = Gtk.Label(label="Checking for updates…")
+        self.updates_label.set_margin_top(10)
+        self.updates_box.pack_start(self.updates_label, False, False, 0)
+        sw = Gtk.ScrolledWindow()
+        sw.set_hexpand(True); sw.set_vexpand(True)
+        self.updates_view = Gtk.TextView()
+        self.updates_view.set_editable(False)
+        self.updates_view.set_cursor_visible(False)
+        sw.add(self.updates_view)
+        self.updates_box.pack_start(sw, True, True, 0)
+
+    # ---------- data ----------
+    def load_state(self):
+        """Runs in background: open apt cache, flatpak/snap lists."""
+        if HAVE_PYAPT:
+            try:
+                self.apt_cache = apt.Cache()
+            except Exception:
+                self.apt_cache = None
+        self.ensure_flathub()
+        self.reload_installed_sets()
+        GLib.idle_add(lambda: (self.spinner.stop(), self.refresh_lists()) and False)
+
+    def ensure_flathub(self):
+        r = bc.run(["flatpak", "--user", "remotes"])
+        if r.returncode == 0 and "flathub" not in r.stdout:
+            bc.run(["flatpak", "--user", "remote-add", "--if-not-exists", "flathub",
+                    "https://flathub.org/repo/flathub.flatpakrepo"], timeout=180)
+
+    def reload_installed_sets(self):
+        self.installed_apt, self.installed_flatpak, self.installed_snap = set(), set(), set()
+        if self.apt_cache:
+            for p in self.apt_cache:
+                if p.is_installed:
+                    self.installed_apt.add(p.name)
+        r = bc.run(["flatpak", "--user", "list", "--app", "--columns=application"])
+        if r.returncode == 0:
+            self.installed_flatpak |= {l.strip() for l in r.stdout.splitlines() if l.strip()}
+        r = bc.run(["snap", "list"])
+        if r.returncode == 0:
+            for line in r.stdout.splitlines()[1:]:
+                if line.strip():
+                    self.installed_snap.add(line.split()[0])
+
+    # ---------- list building ----------
+    def refresh_lists(self):
+        self.rebuild_discover()
+        self.rebuild_installed()
+        threading.Thread(target=self.check_updates, daemon=True).start()
+
+    def all_entries(self):
+        out = []
+        for name, pkg, cat, desc in APT_CATALOG:
+            out.append(AppEntry(name, "apt", cat, desc, pkg=pkg))
+        for name, fp, cat, desc in FLATPAK_CATALOG:
+            out.append(AppEntry(name, "flatpak", cat, desc, flatpak=fp))
+        cat_data = bc.read_json(CATALOG_DIR / "appimage.json")
+        for it in cat_data.get("items", []):
+            out.append(AppEntry(it.get("name", "?"), "appimage", it.get("category", "utilities").lower(),
+                                it.get("description", ""), url=it.get("url"),
+                                homepage=it.get("homepage")))
+        win_data = bc.read_json(CATALOG_DIR / "windows-apps.json")
+        for it in win_data.get("items", []):
+            out.append(AppEntry(it.get("name", "?"), "windows", "windows",
+                                it.get("description", ""), url=it.get("url"),
+                                verb=it.get("verb"), prefix=it.get("prefix")))
+        return out
+
+    def rebuild_discover(self):
+        for child in self.app_list_box.get_children():
+            self.app_list_box.remove(child)
+        for e in self.all_entries():
+            e.installed = self.entry_installed(e)
+            if self.category != "all" and e.category != self.category:
+                continue
+            if self.query and self.query.lower() not in (e.name + " " + e.desc).lower():
+                continue
+            self.app_list_box.add(self.make_row(e))
+        self.app_list_box.show_all()
+
+    def rebuild_installed(self):
+        for child in self.installed_box.get_children():
+            self.installed_box.remove(child)
+        for e in self.all_entries():
+            e.installed = self.entry_installed(e)
+            if e.installed:
+                self.installed_box.add(self.make_row(e, compact=True))
+        placeholder = Gtk.Label(label="Applications you install appear here.")
+        if not self.installed_box.get_children():
+            self.installed_box.add(placeholder)
+        self.installed_box.show_all()
+
+    def entry_installed(self, e):
+        if e.source == "apt" and e.pkg:
+            return e.pkg in self.installed_apt
+        if e.source == "flatpak" and e.flatpak:
+            return e.flatpak in self.installed_flatpak
+        if e.source == "snap" and e.snap:
+            return e.snap in self.installed_snap
+        return False
+
+    def make_row(self, e, compact=False):
+        row = Gtk.Box(spacing=10)
+        row.set_margin_top(6); row.set_margin_bottom(6)
+        row.set_margin_start(8); row.set_margin_end(8)
+
+        badge = Gtk.Label()
+        color = SOURCE_COLORS.get(e.source, "#9aa7c0")
+        badge.set_markup(f'<span foreground="{color}"><b>{e.source.upper()}</b></span>')
+        badge.set_size_request(76, -1)
+        row.pack_start(badge, False, False, 0)
+
+        txt = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        name = Gtk.Label(halign=Gtk.Align.START)
+        name.set_markup(f"<b>{GLib.markup_escape_text(e.name)}</b>")
+        txt.pack_start(name, False, False, 0)
+        desc = Gtk.Label(halign=Gtk.Align.START, xalign=0)
+        desc.set_line_wrap(True)
+        desc.set_markup(f"<small>{GLib.markup_escape_text(e.desc)}</small>")
+        txt.pack_start(desc, False, False, 0)
+        row.pack_start(txt, True, True, 0)
+
+        btn = Gtk.Button()
+        if e.source == "appimage":
+            btn.set_label("Get it" if not e.url else "Download")
+            btn.set_sensitive(bool(e.url or e.homepage))
+            btn.connect("clicked", self.on_appimage, e)
+        elif e.source == "windows":
+            btn.set_label("Run installer" if e.url else ("Install" if e.verb else "Open page"))
+            btn.connect("clicked", self.on_windows, e)
+        else:
+            if e.installed:
+                btn.set_label("Remove")
+                btn.connect("clicked", self.on_remove, e)
+            else:
+                btn.set_label("Install")
+                btn.connect("clicked", self.on_install, e)
+        row.pack_start(btn, False, False, 0)
+        e.row = row
+        return row
+
+    # ---------- actions ----------
+    def run_in_dialog(self, title, commands):
+        dlg = Gtk.Dialog(title=title, transient_for=self.win, modal=False)
+        dlg.set_default_size(680, 380)
+        dlg.add_button("Hide", Gtk.ResponseType.CLOSE)
+        view = Gtk.TextView()
+        view.set_editable(False)
+        view.set_cursor_visible(False)
+        buf = view.get_buffer()
+        sw = Gtk.ScrolledWindow(); sw.add(view)
+        dlg.get_content_area().pack_start(sw, True, True, 0)
+        dlg.show_all()
+        dlg.connect("response", lambda *a: dlg.destroy())
+
+        def worker():
+            for cmd in commands:
+                try:
+                    proc = __import__("subprocess").Popen(
+                        cmd, stdout=__import__("subprocess").PIPE,
+                        stderr=__import__("subprocess").STDOUT, text=True)
+                    for line in proc.stdout:
+                        GLib.idle_add(lambda l=line: buf.insert_at_cursor(l) and False)
+                    proc.wait()
+                    rc = proc.returncode
+                except FileNotFoundError:
+                    rc = 127
+                    GLib.idle_add(lambda: buf.insert_at_cursor(f"command not found: {cmd[0]}\n") and False)
+                if rc != 0:
+                    GLib.idle_add(lambda rc=rc: buf.insert_at_cursor(f"\n[exit {rc}] dependency problems or cancelled (wrong password?)\n") and False)
+            GLib.idle_add(lambda: (self.reload_installed_sets_safe(),
+                                   self.refresh_lists_safe()) and False)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def reload_installed_sets_safe(self):
+        threading.Thread(target=self.reload_installed_sets, daemon=True).start()
+
+    def refresh_lists_safe(self):
+        self.refresh_lists()
+
+    def on_install(self, _b, e):
+        if e.source == "apt":
+            self.run_in_dialog(f"Installing {e.name} (APT)",
+                               [["pkexec", "apt-get", "install", "-y", e.pkg]])
+        elif e.source == "flatpak":
+            self.run_in_dialog(f"Installing {e.name} (Flatpak)",
+                               [["flatpak", "--user", "install", "-y", "--noninteractive",
+                                 "flathub", e.flatpak]])
+        elif e.source == "snap":
+            self.run_in_dialog(f"Installing {e.name} (Snap)",
+                               [["pkexec", "snap", "install", e.snap]])
+
+    def on_remove(self, _b, e):
+        if e.source == "apt":
+            self.run_in_dialog(f"Removing {e.name} (APT)",
+                               [["pkexec", "apt-get", "remove", "-y", e.pkg]])
+        elif e.source == "flatpak":
+            self.run_in_dialog(f"Removing {e.name} (Flatpak)",
+                               [["flatpak", "--user", "uninstall", "-y", e.flatpak]])
+        elif e.source == "snap":
+            self.run_in_dialog(f"Removing {e.name} (Snap)",
+                               [["pkexec", "snap", "remove", e.snap]])
+
+    def on_appimage(self, _b, e):
+        import subprocess
+        if e.url:
+            dest = Path.home() / "Applications"
+            dest.mkdir(exist_ok=True)
+            fname = dest / (e.name.replace(" ", "") + ".AppImage")
+            bc.notify("Borealis Store", f"Downloading {e.name}…")
+            try:
+                import requests
+                with requests.get(e.url, stream=True, timeout=300) as r, open(fname, "wb") as f:
+                    for chunk in r.iter_content(1 << 20):
+                        f.write(chunk)
+                os.chmod(fname, 0o755)
+                bc.notify("Borealis Store", f"{e.name} saved to {dest} — launching")
+                subprocess.Popen([str(fname)], start_new_session=True,
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception as ex:
+                bc.notify("Borealis Store", f"Download failed: {ex}", urgency="critical")
+        else:
+            subprocess.Popen(["xdg-open", e.homepage or "https://appimage.github.io"],
+                             start_new_session=True)
+
+    def on_windows(self, _b, e):
+        import subprocess
+        if e.verb:
+            prefix = Path.home() / "Wine" / (e.prefix or "apps")
+            cmd = ["sh", "-c",
+                   f"WINEPREFIX={prefix} winetricks -q {e.verb}"]
+            self.run_in_dialog(f"Installing {e.name} into Wine prefix", [cmd])
+        elif e.url:
+            import requests
+            dest = Path.home() / "Downloads" / "Borealis-Windows"
+            dest.mkdir(parents=True, exist_ok=True)
+            fname = dest / e.url.rsplit("/", 1)[-1]
+            bc.notify("Borealis Store", f"Downloading {e.name}…")
+            try:
+                with requests.get(e.url, stream=True, timeout=300) as r, open(fname, "wb") as f:
+                    for chunk in r.iter_content(1 << 20):
+                        f.write(chunk)
+                subprocess.Popen(["borealis-exe-launcher", str(fname)],
+                                 start_new_session=True)
+            except Exception as ex:
+                bc.notify("Borealis Store", f"Download failed: {ex}", urgency="critical")
+        else:
+            subprocess.Popen(["xdg-open", e.homepage or "https://winehq.org"],
+                             start_new_session=True)
+
+    # ---------- updates ----------
+    def check_updates(self):
+        lines = []
+        count = 0
+        r = bc.run(["apt-get", "-s", "full-upgrade"], timeout=300)
+        for line in r.stdout.splitlines():
+            if line.startswith("Inst "):
+                count += 1
+                lines.append("APT  " + line.split()[1])
+        fp = bc.run(["flatpak", "--user", "remote-ls", "--updates", "flathub"])
+        fpc = len([l for l in fp.stdout.splitlines() if l.strip()])
+        summary = f"{count} APT updates · {fpc} Flatpak updates"
+        GLib.idle_add(lambda: self.updates_label.set_text(summary) and False)
+        if lines:
+            GLib.idle_add(lambda: self.updates_view.get_buffer().set_text("\n".join(lines)) and False)
+
+    def on_update_all_apt(self, *_):
+        self.run_in_dialog("Updating system (APT)",
+                           [["pkexec", "apt-get", "update"],
+                            ["pkexec", "apt-get", "-y", "full-upgrade"]])
+
+    # ---------- handlers ----------
+    def on_search(self, entry):
+        self.query = entry.get_text().strip()
+        self.rebuild_discover()
+
+    def on_category(self, _box, row):
+        if row:
+            self.set_category(row.cat)
+
+    def set_category(self, cat):
+        self.category = cat
+        if cat == "windows":
+            self.stack.set_visible_child_name("discover")
+        self.rebuild_discover()
+        for r in self.sidebar.get_children():
+            if r.cat == cat:
+                self.sidebar.select_row(r)
+                break
+
+
+def main():
+    app = Store()
+    app.run(sys.argv)
+
+
+if __name__ == "__main__":
+    main()

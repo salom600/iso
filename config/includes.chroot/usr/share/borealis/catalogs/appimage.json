@@ -1,0 +1,48 @@
+{
+  "name": "Borealis AppImage Catalog",
+  "version": 1,
+  "updated": "2026-08-15",
+  "note": "Curated AppImages. URLs must point at stable direct-download locations; entries with null url are informational only (open project page).",
+  "items": [
+    {
+      "id": "onlyoffice",
+      "name": "ONLYOFFICE DesktopEditors",
+      "description": "Microsoft-compatible office suite — closest look & feel to MS Office for switchers.",
+      "category": "Office",
+      "url": null,
+      "homepage": "https://www.onlyoffice.com/download-desktop.aspx"
+    },
+    {
+      "id": "libreoffice-appimage",
+      "name": "LibreOffice (AppImage)",
+      "description": "Full LibreOffice suite as a portable AppImage (also installable from APT in the Store).",
+      "category": "Office",
+      "url": null,
+      "homepage": "https://www.libreoffice.org/download/appimage/"
+    },
+    {
+      "id": "balena-etcher",
+      "name": "balenaEtcher",
+      "description": "Flash ISO images to USB drives — the tool many Windows users already know.",
+      "category": "Utilities",
+      "url": null,
+      "homepage": "https://etcher.balena.io/"
+    },
+    {
+      "id": "heroic",
+      "name": "Heroic Games Launcher",
+      "description": "Epic Games & GOG launcher (native) — pair with Game Boost for best performance.",
+      "category": "Games",
+      "url": null,
+      "homepage": "https://heroicgameslauncher.com/"
+    },
+    {
+      "id": "appimagepool",
+      "name": "AppImagePool",
+      "description": "Community AppImage store — extends this catalog with hundreds of apps.",
+      "category": "Utilities",
+      "url": null,
+      "homepage": "https://github.com/AppImageCrafters/appimagepool"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Borealis Welcome
+Comment=First-run wizard: drivers, updates, themes, tips
+Exec=borealis-welcome
+Icon=borealis
+Terminal=false
+Categories=System;
+NoDisplay=false

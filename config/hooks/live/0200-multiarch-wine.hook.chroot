@@ -1,0 +1,29 @@
+#!/bin/sh
+#
+# 0200 — i386 multiarch + Wine stack.
+# Must run inside the chroot after base packages are installed: adding the
+# i386 architecture before the main package phase would slow/confuse lb's
+# dependency resolution, so wine/* is deliberately NOT in the package lists.
+#
+set -e
+export DEBIAN_FRONTEND=noninteractive
+
+echo "HOOK 0200: enabling i386 multiarch + Wine"
+dpkg --add-architecture i386
+apt-get update -qq
+
+# Core 64-bit Wine (Debian main). Strict — a failure here must stop the build.
+apt-get install -y -qq wine wine64 winetricks
+
+# 32-bit Wine + 32-bit Vulkan (DXVK needs both for 32-bit games). Lenient:
+# 64-bit-only Wine still satisfies the spec's core .exe requirement.
+apt-get install -y -qq wine32:i386 \
+    || echo "HOOK 0200: wine32 unavailable — 64-bit Wine only" >&2
+apt-get install -y -qq mesa-vulkan-drivers:i386 libvulkan1:i386 \
+    || echo "HOOK 0200: 32-bit Vulkan not available (i386 DXVK disabled)" >&2
+
+# Marker consumed by borealis-wine-prefix to detect a complete Wine stack.
+mkdir -p /usr/share/borealis/wine
+echo "installed-by-hook-0200" > /usr/share/borealis/wine/.wine-stack-ok
+
+exit 0

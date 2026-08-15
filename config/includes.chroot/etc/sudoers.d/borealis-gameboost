@@ -1,0 +1,4 @@
+# Borealis Linux — Game Boost helper whitelist.
+# The two scripts validate their own arguments and only touch CPU governors
+# and a fixed list of background services; nothing else runs passwordless.
+%sudo ALL=(root) NOPASSWD: /usr/bin/borealis-cpugov, /usr/bin/borealis-gameboost-sys
