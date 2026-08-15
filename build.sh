@@ -103,8 +103,12 @@ cp -r themes/aurora-night themes/glacier-light \
 
 # --- 4. live-build config ------------------------------------------------------
 say "Configuring live-build"
-if [[ "${KEEP_CACHE:-0}" != "1" ]]; then
+# Keep cache/ between builds (CI caches it: apt archives + bootstrap stage);
+# set PURGE_CACHE=1 for a from-scratch build.
+if [[ "${PURGE_CACHE:-0}" == "1" ]]; then
     lb clean --purge >/dev/null 2>&1 || true
+else
+    lb clean >/dev/null 2>&1 || true
 fi
 
 lb config \

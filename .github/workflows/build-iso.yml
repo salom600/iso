@@ -28,6 +28,14 @@ jobs:
 
       - uses: actions/checkout@v4
 
+      - name: Cache live-build archives (apt .debs + bootstrap stage)
+        uses: actions/cache@v4
+        with:
+          path: cache
+          key: lb-cache-v1-${{ hashFiles('config/package-lists/*') }}
+          restore-keys: |
+            lb-cache-v1-
+
       - name: Show disk headroom
         run: df -h / "$GITHUB_WORKSPACE" || true
 
@@ -36,6 +44,9 @@ jobs:
 
       - name: Build ISO
         run: ./build.sh
+
+      - name: Verify hybrid boot structure (DVD BIOS/UEFI + raw-dd USB)
+        run: python3 scripts/verify-hybrid.py borealis-*-amd64.iso
 
       - name: Show result + free disk
         run: |

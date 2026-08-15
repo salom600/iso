@@ -1,0 +1,21 @@
+#!/bin/sh
+#
+# 9000 — boot menu timeouts (binary stage).
+# live-build defaults leave both boot menus waiting forever (timeout 0 / no
+# set timeout). Boot the live entry automatically after ~10 seconds instead —
+# the Windows-switcher audience should never meet a command-line-looking menu.
+#
+set -e
+
+if [ -f binary/isolinux/isolinux.cfg ]; then
+    sed -i 's/^timeout .*/timeout 100/' binary/isolinux/isolinux.cfg
+    echo "HOOK 9000: isolinux timeout=100 (10s)"
+fi
+
+if [ -f binary/boot/grub/config.cfg ]; then
+    grep -q '^set timeout' binary/boot/grub/config.cfg || \
+        printf '\nset timeout=10\n' >> binary/boot/grub/config.cfg
+    echo "HOOK 9000: grub timeout=10"
+fi
+
+exit 0
